@@ -63,7 +63,7 @@ public final class CentralServerHandler extends SimpleChannelInboundHandler<InPa
         }
         final int op = inPacket.decodeShort();
         final CentralHeader header = CentralHeader.getByValue(op);
-        log.log(Level.TRACE, "[CentralServerNode] | {}({}) {}", header, Util.opToString(op), inPacket);
+        log.log(Level.INFO, "[CentralServerNode] | {}({}) {}", header, Util.opToString(op), inPacket);
         ServerExecutor.submitService(() -> {
             switch (header) {
                 case InitializeResult -> handleInitializeResult(remoteServerNode, inPacket);
