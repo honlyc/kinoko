@@ -21,8 +21,8 @@ import java.util.concurrent.Executors;
 
 public final class ScriptDispatcher {
     private static final Logger log = LogManager.getLogger(ScriptDispatcher.class);
+    private static final ExecutorService scriptExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private static final Map<String, Method> scriptMap = new HashMap<>();
-    private static ExecutorService executor;
 
     public static void initialize() {
         final Reflections reflections = new Reflections("kinoko.script", Scanners.SubTypes);
@@ -42,11 +42,11 @@ public final class ScriptDispatcher {
                 scriptMap.put(scriptName, method);
             }
         }
-        executor = Executors.newVirtualThreadPerTaskExecutor();
+        log.info("Initialized script dispatcher: {}", scriptMap.size());
     }
 
     public static void shutdown() {
-        executor.shutdown();
+        scriptExecutor.shutdown();
     }
 
     public static void startNpcScript(User user, FieldObject source, String scriptName, int speakerId) {
@@ -90,18 +90,16 @@ public final class ScriptDispatcher {
         if (handler == null) {
             user.write(MessagePacket.system("Not implemented, please let the GM know (" + scriptName + ")."));
             log.error("Could not resolve {} script with name : {}", scriptType, scriptName);
-            if (scriptType == ScriptType.ITEM || scriptType == ScriptType.PORTAL) {
-                user.dispose();
-            }
+            disposeScript(scriptType, user, source);
             return;
         }
         // Execute script handler
         final Field field = source.getField();
         final ScriptManagerImpl scriptManager = new ScriptManagerImpl(user, field, source, scriptName, speakerId);
-        executor.submit(() -> {
+        scriptExecutor.submit(() -> {
             try {
                 log.debug("Executing {} script : {}", scriptType.name(), scriptName);
-                user.lock();
+                ServerExecutor.lockExecutor(field);
                 handler.invoke(null, scriptManager);
             } catch (Exception e) {
                 if (!(e.getCause() instanceof ScriptTermination)) {
