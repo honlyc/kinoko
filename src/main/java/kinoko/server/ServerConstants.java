@@ -2,6 +2,8 @@ package kinoko.server;
 
 import kinoko.util.Util;
 
+import java.nio.charset.Charset;
+
 public final class ServerConstants {
     public static final int GAME_VERSION = 95;
     public static final String PATCH = "1";
@@ -17,5 +19,7 @@ public final class ServerConstants {
     public static final String DATABASE_PROVIDER = Util.getEnv("DATABASE_PROVIDER", "sqlite"); // "cassandra" || "sqlite"
     public static final String DATABASE_HOST = Util.getEnv("DATABASE_HOST", "127.0.0.1");
     public static final int DATABASE_PORT = 9042;
+    public static final Charset CHARSET = Charset.forName("GBK");
+
 }
 

@@ -15,6 +15,7 @@ import kinoko.packet.world.MemoPacket;
 import kinoko.packet.world.WvsContext;
 import kinoko.provider.MapProvider;
 import kinoko.provider.map.PortalInfo;
+import kinoko.script.common.ScriptDispatcher;
 import kinoko.script.common.ScriptError;
 import kinoko.server.cashshop.Gift;
 import kinoko.server.guild.GuildRequest;
@@ -365,17 +366,8 @@ public final class MigrationHandler {
 
     @Handler(InHeader.UserMigrateToITCRequest)
     public static void handleUserMigrateToITCRequest(User user, InPacket inPacket) {
-        final Field targetField;
-        final Optional<Field> fieldResult = user.getConnectedServer().getFieldById(919191919);
-        if (fieldResult.isEmpty()) {
-            throw new ScriptError("Could not resolve field ID : %d", 919191919);
-        }
-        targetField = fieldResult.get();
-        final Optional<PortalInfo> portalResult = targetField.getRandomStartPoint();
-        if (portalResult.isEmpty()) {
-            throw new ScriptError("Could not resolve start point portal for field ID : %d", targetField.getFieldId());
-        }
-        user.warp(targetField, portalResult.get(), false, false);
+        ScriptDispatcher.startNpcScript(user, user, "AmaurotHelp", 9201027);
+        user.dispose();
     }
 
     private static boolean isWhitelistedTransferField(int currentFieldId, int targetFieldId) {

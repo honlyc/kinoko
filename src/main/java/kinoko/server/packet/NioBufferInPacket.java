@@ -1,5 +1,6 @@
 package kinoko.server.packet;
 
+import kinoko.server.ServerConstants;
 import kinoko.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,13 +52,13 @@ public final class NioBufferInPacket implements InPacket {
 
     @Override
     public String decodeString(int length) {
-        return new String(decodeArray(length), StandardCharsets.US_ASCII);
+        return new String(decodeArray(length), ServerConstants.CHARSET);
     }
 
     @Override
     public String decodeString() {
         final short length = decodeShort();
-        return new String(decodeArray(length), StandardCharsets.US_ASCII);
+        return new String(decodeArray(length), ServerConstants.CHARSET);
     }
 
     @Override

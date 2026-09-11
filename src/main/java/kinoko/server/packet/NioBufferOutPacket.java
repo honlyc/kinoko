@@ -1,5 +1,6 @@
 package kinoko.server.packet;
 
+import kinoko.server.ServerConstants;
 import kinoko.server.header.OutHeader;
 import kinoko.util.Util;
 import org.apache.logging.log4j.LogManager;
@@ -78,12 +79,13 @@ public final class NioBufferOutPacket implements OutPacket {
             value = "";
         }
         ensureSize(length);
-        if (value.length() > length) {
+        int vLength = (value.getBytes(ServerConstants.CHARSET)).length;
+        if (vLength > length) {
             log.error("Encoding a string that is too long, string will be truncated");
-            getBuffer().put(value.substring(0, length).getBytes(StandardCharsets.US_ASCII));
+            getBuffer().put(value.substring(0, length).getBytes(ServerConstants.CHARSET));
         } else {
-            getBuffer().put(value.getBytes(StandardCharsets.US_ASCII));
-            getBuffer().put(new byte[length - value.length()]);
+            getBuffer().put(value.getBytes(ServerConstants.CHARSET));
+            getBuffer().put(new byte[length - vLength]);
         }
     }
 
@@ -95,10 +97,10 @@ public final class NioBufferOutPacket implements OutPacket {
         if (value.length() > Short.MAX_VALUE) {
             log.error("Encoding a string that is too long, string will be truncated");
         }
-        final int length = Math.min(value.length(), Short.MAX_VALUE);
+        final int length = Math.min(value.getBytes(ServerConstants.CHARSET).length, Short.MAX_VALUE);
         ensureSize(2 + length);
-        getBuffer().putShort((short) value.length());
-        getBuffer().put(value.getBytes(StandardCharsets.US_ASCII));
+        getBuffer().putShort((short) length);
+        getBuffer().put(value.getBytes(ServerConstants.CHARSET));
     }
 
     @Override
