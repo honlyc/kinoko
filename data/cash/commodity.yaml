@@ -25133,7 +25133,7 @@
   price: 2500
   period: 90
   gender: 2
-  onSale: false
+  onSale: true
 
 # Battle Mage Staff
 10002799:

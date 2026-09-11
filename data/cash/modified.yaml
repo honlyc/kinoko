@@ -184,7 +184,7 @@
 
 # Quest Completer Alice
 50200232:
-  onSale: false
+  onSale: true
 
 # Character Name Change
 50600000:

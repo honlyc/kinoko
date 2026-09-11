@@ -747,6 +747,11 @@ public final class CashItemHandler extends ItemHandler {
                 user.write(WvsContext.inventoryOperation(updateItemResult.get(), true));
                 user.dispose();
             }
+            case QUESTDELIVERY -> {
+//                final int equipItemPosition = inPacket.decodeByte();
+                log.info("QUESTDELIVERY: equipItemPosition={}", item);
+                user.dispose();
+            }
             case null -> {
                 log.error("Unknown cash item type for item ID : {}", item.getItemId());
                 user.dispose();
