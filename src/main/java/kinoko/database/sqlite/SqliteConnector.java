@@ -56,6 +56,16 @@ public final class SqliteConnector implements DatabaseConnector {
     }
 
     @Override
+    public FameAccessor getFameAccessor() {
+        return null;
+    }
+
+    @Override
+    public ActiveMachineAccessor getActiveMachineAccessor() {
+        return null;
+    }
+
+    @Override
     public void initialize() {
         try {
             // Connect to SQLite database (creates file if it does not exist)

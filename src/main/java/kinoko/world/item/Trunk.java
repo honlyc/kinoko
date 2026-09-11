@@ -50,6 +50,10 @@ public final class Trunk implements Encodable {
         this.money = money;
     }
 
+    public boolean canAddMoney(int money) {
+        final long newMoney = ((long) getMoney()) + money;
+        return newMoney <= Integer.MAX_VALUE && newMoney >= 0;
+    }
 
     // HELPER METHODS --------------------------------------------------------------------------------------------------
 
@@ -103,11 +107,6 @@ public final class Trunk implements Encodable {
         if (item.getQuantity() > 0) {
             items.add(item);
         }
-    }
-
-    public boolean canAddMoney(int money) {
-        final long newMoney = ((long) getMoney()) + money;
-        return newMoney <= Integer.MAX_VALUE && newMoney >= 0;
     }
 
     public boolean addMoney(int money) {

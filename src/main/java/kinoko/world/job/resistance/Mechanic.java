@@ -196,12 +196,14 @@ public final class Mechanic extends SkillProcessor {
                 user.addSummoned(accelerationBot);
                 // Initial effect
                 field.getMobPool().forEach((mob) -> {
-                    if (!mob.isBoss()) {
-                        mob.setTemporaryStat(Map.of(
-                                MobTemporaryStat.Speed, MobStatOption.of(si.getValue(SkillStat.x, slv), skillId, 0),
-                                MobTemporaryStat.PDR, MobStatOption.of(si.getValue(SkillStat.y, slv), skillId, 0),
-                                MobTemporaryStat.MDR, MobStatOption.of(si.getValue(SkillStat.y, slv), skillId, 0)
-                        ), 0);
+                    try (var lockedMob = mob.acquire()) {
+                        if (!mob.isBoss()) {
+                            mob.setTemporaryStat(Map.of(
+                                    MobTemporaryStat.Speed, MobStatOption.of(si.getValue(SkillStat.x, slv), skillId, 0),
+                                    MobTemporaryStat.PDR, MobStatOption.of(si.getValue(SkillStat.y, slv), skillId, 0),
+                                    MobTemporaryStat.MDR, MobStatOption.of(si.getValue(SkillStat.y, slv), skillId, 0)
+                            ), 0);
+                        }
                     }
                 });
                 // Set spawn modifier
@@ -284,8 +286,10 @@ public final class Mechanic extends SkillProcessor {
     public static void handleRemoveAccelerationBot(Summoned summoned) {
         summoned.getField().getMobSpawnModifiers().remove(summoned.getId());
         summoned.getField().getMobPool().forEach((mob) -> {
-            if (!mob.isBoss()) {
-                mob.resetTemporaryStat(summoned.getSkillId());
+            try (var lockedMob = mob.acquire()) {
+                if (!mob.isBoss()) {
+                    mob.resetTemporaryStat(summoned.getSkillId());
+                }
             }
         });
     }

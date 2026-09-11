@@ -127,8 +127,10 @@ public final class WildHunter extends SkillProcessor {
                     log.error("Could not resolve target mob ID : {} for jaguar-oshi skill", targetMobId);
                     return;
                 }
-                final Mob mob = targetResult.get();
-                mob.damage(user, mob.getHp(), 0, MobLeaveType.SWALLOW);
+                try (var lockedMob = targetResult.get().acquire()) {
+                    final Mob mob = lockedMob.get();
+                    mob.damage(user, mob.getHp(), 0, MobLeaveType.SWALLOW);
+                }
                 return;
             case JAGUAR_OSHI_DIGESTED:
                 user.resetTemporaryStat(Set.of(CharacterTemporaryStat.Swallow_Mob, CharacterTemporaryStat.Swallow_Template));

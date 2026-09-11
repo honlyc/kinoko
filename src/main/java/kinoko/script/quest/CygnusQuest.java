@@ -4,10 +4,14 @@ import kinoko.script.common.Script;
 import kinoko.script.common.ScriptHandler;
 import kinoko.script.common.ScriptManager;
 import kinoko.util.Tuple;
+import kinoko.world.field.Field;
+import kinoko.world.field.mob.MobAppearType;
 import kinoko.world.item.InventoryType;
 import kinoko.world.job.Job;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 public final class CygnusQuest extends ScriptHandler {
     @Script("enterDisguise0")
@@ -22,40 +26,143 @@ public final class CygnusQuest extends ScriptHandler {
     public static void enterDisguise1(ScriptManager sm) {
         // Empress' Road : Training Forest I (130010000)
         //   in00 (-724, -754)
-        sm.playPortalSE();
-        sm.warp(130010010, "out00"); // Empress' Road : Training Forest I
+        if (sm.hasQuestStarted(20301) || sm.hasQuestStarted(20302) || sm.hasQuestStarted(20303) || sm.hasQuestStarted(20304) || sm.hasQuestStarted(20305)) {
+            Field field = sm.getField().getFieldStorage().getFieldById(913002000).orElseThrow();
+            if (field.getUserPool().getCount() > 0) {
+                sm.message("Someone else is already searching the area.");
+                return;
+            }
+
+            if (sm.hasItem(4032101, 1)) {
+                sm.message("You have already challenged the Master of Disguise, report your success to the Chief Knight.");
+                return;
+            }
+
+            sm.playPortalSE();
+            sm.warp(913002000);
+            field.setMobSpawn(false);
+            sm.spawnNpc(1104104, 2517, 88, true, false);
+        } else {
+            sm.playPortalSE();
+            sm.warp(130010010, "out00"); // Empress' Road : Training Forest I
+        }
     }
 
     @Script("enterDisguise2")
     public static void enterDisguise2(ScriptManager sm) {
         // Empress' Road : Training Forest I (130010000)
         //   in01 (-1439, -755)
-        sm.playPortalSE();
-        sm.warp(130010020, "out00"); // Empress' Road : Tiv's Forest
+        if (sm.hasQuestStarted(20301) || sm.hasQuestStarted(20302) || sm.hasQuestStarted(20303) || sm.hasQuestStarted(20304) || sm.hasQuestStarted(20305)) {
+            Field field = sm.getField().getFieldStorage().getFieldById(913002100).orElseThrow();
+            if (field.getUserPool().getCount() > 0) {
+                sm.message("Someone else is already searching the area.");
+                return;
+            }
+
+            if (sm.hasItem(4032101, 1)) {
+                sm.message("You have already challenged the Master of Disguise, report your success to the Chief Knight.");
+                return;
+            }
+
+            sm.playPortalSE();
+            sm.warp(913002100);
+            field.setMobSpawn(false);
+            sm.spawnNpc(1104104, 3307, 88, true, false);
+        } else {
+            sm.playPortalSE();
+            sm.warp(130010020, "out00"); // Empress' Road : Tiv's Forest
+        }
     }
 
     @Script("enterDisguise3")
     public static void enterDisguise3(ScriptManager sm) {
         // Empress' Road : Training Forest II (130010100)
         //   in00 (-1402, -338)
-        sm.playPortalSE();
-        sm.warp(130010110, "out00"); // Empress' Road : Timu's Forest
+        if (sm.hasQuestStarted(20301) || sm.hasQuestStarted(20302) || sm.hasQuestStarted(20303) || sm.hasQuestStarted(20304) || sm.hasQuestStarted(20305)) {
+            Field field = sm.getField().getFieldStorage().getFieldById(913002200).orElseThrow();
+            if (field.getUserPool().getCount() > 0) {
+                sm.message("Someone else is already searching the area.");
+                return;
+            }
+
+            if (sm.hasItem(4032101, 1)) {
+                sm.message("You have already challenged the Master of Disguise, report your success to the Chief Knight.");
+                return;
+            }
+
+            sm.playPortalSE();
+            sm.warp(913002200);
+            field.setMobSpawn(false);
+            sm.spawnNpc(1104104, 263, 88, true, false);
+        } else {
+            sm.playPortalSE();
+            sm.warp(130010110, "out00"); // Empress' Road : Timu's Forest
+        }
     }
 
     @Script("enterDisguise4")
     public static void enterDisguise4(ScriptManager sm) {
         // Empress' Road : Training Forest II (130010100)
         //   in01 (-2887, -747)
-        sm.playPortalSE();
-        sm.warp(130010120, "out00"); // Empress' Road : Tiru's Forest
+        if (sm.hasQuestStarted(20301) || sm.hasQuestStarted(20302) || sm.hasQuestStarted(20303) || sm.hasQuestStarted(20304) || sm.hasQuestStarted(20305)) {
+            Field field = sm.getField().getFieldStorage().getFieldById(913002300).orElseThrow();
+            if (field.getUserPool().getCount() > 0) {
+                sm.message("Someone else is already searching the area.");
+                return;
+            }
+
+            if (sm.hasItem(4032101, 1)) {
+                sm.message("You have already challenged the Master of Disguise, report your success to the Chief Knight.");
+                return;
+            }
+
+            sm.playPortalSE();
+            sm.warp(913002300);
+            field.setMobSpawn(false);
+            sm.spawnNpc(1104104, -1766, 88, true, false);
+        } else {
+            sm.playPortalSE();
+            sm.warp(130010120, "out00"); // Empress' Road : Tiru's Forest
+        }
     }
 
     @Script("enterDisguise5")
     public static void enterDisguise5(ScriptManager sm) {
         // Empress' Road : Training Forest III (130010200)
         //   west00 (-4097, 90)
-        sm.playPortalSE();
-        sm.warp(130020000, "east00"); // Empress' Road : Entrance to the Drill Hall
+        if (sm.hasQuestStarted(20301) || sm.hasQuestStarted(20302) || sm.hasQuestStarted(20303) || sm.hasQuestStarted(20304) || sm.hasQuestStarted(20305)) {
+            Field field = sm.getField().getFieldStorage().getFieldById(913002400).orElseThrow();
+            if (field.getUserPool().getCount() > 0) {
+                sm.message("Someone else is already searching the area.");
+                return;
+            }
+
+            if (sm.hasItem(4032101, 1)) {
+                sm.message("You have already challenged the Master of Disguise, report your success to the Chief Knight.");
+                return;
+            }
+
+            sm.playPortalSE();
+            sm.warp(913002400);
+            field.setMobSpawn(false);
+            sm.spawnNpc(1104104, 542, 88, true, false);
+        } else {
+            sm.playPortalSE();
+            sm.warp(130020000, "east00"); // Empress' Road : Entrance to the Drill Hall
+        }
+    }
+
+    @Script("desguiseStrike")
+    public static void desguiseStrike(ScriptManager sm) {
+        if(sm.getJob().getJobId() % 100 != 10 || sm.getJob().getJobId() <= 1000) {
+            log.debug(sm.getJob().getJobId());
+            sm.sayOk("Hello there, #h0#. Are you helping us finding the intruder? He is not in this area, I've already searched here.");
+            return;
+        }
+
+        sm.sayOk("Darn, you found me! Then, there's only one way out! Let's fight, like #rBlack Wings#k should!");
+        sm.spawnMob(9001009, MobAppearType.NORMAL, 542, 88, false);
+        sm.removeNpc(1104104);
     }
 
     @Script("enterFirstDH")
@@ -73,6 +180,109 @@ public final class CygnusQuest extends ScriptHandler {
             sm.warp(913000200, "out00");
         } else {
             sm.message("Hall #1 can only be entered if you're engaged in Kiku's Acclimation Training.");
+        }
+    }
+
+    @Script("enterSecondDH")
+    public static void enterSecondDH(ScriptManager sm) {
+        // Empress' Road : Entrance to the Drill Hall (130020000)
+        for (int i = 0; i < 5; i++) {
+            if (sm.hasQuestStarted(20201 + i)) {
+                sm.playPortalSE();
+                sm.warp(913001000);
+            }
+        }
+    }
+
+    @Script("enterthirdDH")
+    public static void enterthirdDH(ScriptManager sm) {
+        // Empress' Road : Entrance to the Drill Hall (130020000)
+        final List<Integer> destinations = List.of(
+                913010000, // Hidden Street : The 3rd Drill Hall [1]
+                913010100, // Hidden Street : The 3rd Drill Hall [2]
+                913010200, // Hidden Street : The 3rd Drill Hall [3]
+                913010300 // Hidden Street : The 3rd Drill Hall [4]
+        );
+
+        List<Field> maps = destinations.stream()
+                .map(mapId -> sm.getField().getFieldStorage().getFieldById(mapId))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+
+        maps.sort((map1, map2) -> {
+            if (map1.getUserPool().getCount() < 1 && map1.getMobPool().getCount() > 0) {
+                return -1;
+            }
+            if (map2.getUserPool().getCount() < 1 && map2.getMobPool().getCount() > 0) {
+                return 1;
+            }
+            if (map1.getUserPool().getCount() < 1) {
+                return -1;
+            }
+            if (map2.getUserPool().getCount() < 1) {
+                return 1;
+            }
+            if (map1.getMobPool().getCount() > 0) {
+                return -1;
+            }
+            if (map2.getMobPool().getCount() > 0) {
+                return 1;
+            }
+            return 0;
+        });
+
+        for (int i = 0; i < 5; i++) {
+            if (sm.hasQuestStarted(20601 + i)) {
+                sm.playPortalSE();
+                sm.warp(maps.getFirst().getFieldId());
+            }
+        }
+    }
+
+    @Script("enterfourthDH")
+    public static void enterfourthDH(ScriptManager sm) {
+        // Empress' Road : Entrance to the Drill Hall (130020000)
+        final List<Integer> destinations = List.of(
+                913020000, // Hidden Street : The 4rd Drill Hall [1]
+                913020100, // Hidden Street : The 4rd Drill Hall [2]
+                913020200, // Hidden Street : The 4rd Drill Hall [3]
+                913020300 // Hidden Street : The 4rd Drill Hall [4]
+        );
+
+        List<Field> maps = destinations.stream()
+                .map(mapId -> sm.getField().getFieldStorage().getFieldById(mapId))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+
+        maps.sort((map1, map2) -> {
+            if (map1.getUserPool().getCount() < 1 && map1.getMobPool().getCount() > 0) {
+                return -1;
+            }
+            if (map2.getUserPool().getCount() < 1 && map2.getMobPool().getCount() > 0) {
+                return 1;
+            }
+            if (map1.getUserPool().getCount() < 1) {
+                return -1;
+            }
+            if (map2.getUserPool().getCount() < 1) {
+                return 1;
+            }
+            if (map1.getMobPool().getCount() > 0) {
+                return -1;
+            }
+            if (map2.getMobPool().getCount() > 0) {
+                return 1;
+            }
+            return 0;
+        });
+
+        for (int i = 0; i < 5; i++) {
+            if (sm.hasQuestStarted(20611 + i)) {
+                sm.playPortalSE();
+                sm.warp(maps.getFirst().getFieldId());
+            }
         }
     }
 
@@ -203,6 +413,13 @@ public final class CygnusQuest extends ScriptHandler {
         sm.sayBoth("Now... I want you to go out there and show the world how the Knights of Cygnus operate.");
     }
 
+    @Script("q20200s")
+    public static void q20200s(ScriptManager sm) {
+        if(sm.askYesNo("Are you sure you are ready for 2nd job advancement?")) {
+            sm.forceStartQuest(20200);
+        }
+    }
+
     @Script("q20700s")
     public static void q20700s(ScriptManager sm) {
         // Are You Sure You Can Leave? (20700 - start)
@@ -214,5 +431,101 @@ public final class CygnusQuest extends ScriptHandler {
         sm.forceCompleteQuest(20700);
         sm.sayNext("#p1102000#, the Training Instructor, will help you train into a serviceable knight. Once you reach Level 13, I'll assign you a mission or two. So until then, keep training.");
         sm.sayPrev("Oh, and are you aware that if you strike a conversation with #p1101001#, she'll give you a blessing? The blessing will definitely help you on your journey.");
+    }
+
+    @Script("q20311s")
+    public static void q20311s(ScriptManager sm) {
+        // Cygnus 3rd Job advancement - Dawn Warrior
+        moveTo3rdJob(sm, Job.DAWN_WARRIOR_3, 20311);
+    }
+
+    @Script("q20312s")
+    public static void q20312s(ScriptManager sm) {
+        // Cygnus 3rd Job advancement - Blaze Wizard
+        moveTo3rdJob(sm, Job.BLAZE_WIZARD_3, 20312);
+    }
+
+    @Script("q20313s")
+    public static void q20313s(ScriptManager sm) {
+        // Cygnus 3rd Job advancement - Wind Archer
+        moveTo3rdJob(sm, Job.WIND_ARCHER_3, 20313);
+    }
+
+    @Script("q20314s")
+    public static void q20314s(ScriptManager sm) {
+        // Cygnus 3rd Job advancement - Night Walker
+        moveTo3rdJob(sm, Job.NIGHT_WALKER_3, 20314);
+    }
+
+    @Script("q20315s")
+    public static void q20315s(ScriptManager sm) {
+        // Cygnus 3rd Job advancement - Thunder Breaker
+        moveTo3rdJob(sm, Job.THUNDER_BREAKER_3, 20315);
+    }
+
+    private static void moveTo3rdJob(ScriptManager sm, Job job, int questId) {
+        sm.sayNext("The jewel you brought back from the Transformer is the tear of the Divine Bird. It's the crystal of it's power. If the Black Wizard has his hands on this, then spells doom for all of us.");
+        if(!sm.askYesNo("For your effort in preventing a potentially serious disaster, the Godess has bestowed upon a new title for you. Are you ready to accept it?")) {
+            sm.sayOk("You are not ready yet.");
+            return;
+        }
+
+        if(sm.getUser().getCharacterStat().getSp().getNonExtendSp() > (sm.getLevel() - 70) * 3) {
+            sm.sayNext("Hmmm...you have too much SP...you can't make the 3rd job advancement with that many SP in store. Use more SP on the skills on the 1st level and then come back.");
+            return;
+        }
+
+        if(!sm.canAddItem(1142068, 1)) {
+            sm.sayOk("Please make space in your inventory.");
+            return;
+        }
+
+        sm.addItem(1142068, 1);
+        sm.setJob(job);
+        sm.sayOk("As of this moment, you are now the Knight Sergeant. From this moment on, you shall carry yourself with dignity and respect befitting your new title The Knight Sergeant of Knights of cygnus. May your glory shines as bright as it is right now.");
+        sm.forceCompleteQuest(questId);
+    }
+
+    @Script("q20400s")
+    public static void q20400s(ScriptManager sm) {
+        // [Job Adv.] Chasing the Knights Target
+        sm.sayNext("It's been a while since I last saw you. I can't even recognize you now, seeing how powerful you have become since our last encounter. I can honestly say that you just might be one of the most powerful Knights in all of Cygnus Knights. Chief Knights included. Okay, enough pleasantries. Let's get down to business.");
+        sm.sayBoth("It's a new mission. According to the information we've acquired, a member of the #rBlack Wings#k is after the Empress. In order to prevent anything from happening to the Empress, the Advanced Knight #bDunamis#k has been secretly tracing that individual, but it doesn't look too good from here.");
+        if(sm.askAccept("If it's Victoria Island, at least we know everything that goes on there. This one's Ossyria, where not even the intelligence officials here know everything inside out. This means the Advanced Knight will need help. Please provide help to Dunamis. The last place she contacted was at #bEI Nath#k, so try looking for Dunamis.")) {
+            sm.forceCompleteQuest(20400);
+            sm.sayOk("Well, I may have said it in a joking manner, but it is true that you are one of the most talented knights in all of Cygnus Knights. That's why an important mission like this is given to a talented individual in Cygnus Knights. I believe in you. Good Luck.");
+        } else {
+            sm.sayOk("Hmmm... You seem way too at ease. It's a waste of talent and firepower for an accomplished individual like you to just sit around, being content with the way things are...");
+        }
+    }
+
+    @Script("q20520s")
+    public static void q20520s(ScriptManager sm) {
+        sm.sayNext("Wow, you have already reach Level 50, yet why are you still walking around like that? I mean, you've reached Level 50, but you are still walking around with your own feet. That's unusual behavior for a Knight like you.");
+        if (sm.askAccept("Well, I suppose it's up to you, but by doing that, you also risk marring the pride and honor of the Empress. This is why I am here to give you a helpful pointer. It's called #bMonster Riding#k. Of course you're interested in this, right?")) {
+            sm.forceStartQuest(20520);
+            sm.sayOk("There's a special mount that only the Cygnus Knights can enjoy. If you are interested, visit #bEreve#k. I will give you more information on it.");
+            sm.forceCompleteQuest(20520);
+        }
+    }
+
+    @Script("q20600s")
+    public static void q20600s(ScriptManager sm) {
+        // [Skill] Training Never Ends
+        if(sm.askAccept("#h0#. Have you been slacking off on training since reaching Level 90? We all know how powerful you are, but the training is not complete. Take a look at these Knight Commander. They train day and night, preparing themselves for the possible encounter with the Black Wizard.")) {
+            sm.sayOk("I strongly suggest you talk to the Knight Commander for some advice. Who knows? You might be able to find a new #bskill#k...");
+            sm.forceCompleteQuest(20600);
+        }
+    }
+
+    @Script("q20610s")
+    public static void q20610s(ScriptManager sm) {
+        // [Skill] Training Still Never Ends
+        if (sm.askAccept("Have you mastered your new skills? Since it looks like you have mastered those skills, it's time for you to learn a #bnew skill#k, don't you think so?")) {
+            sm.forceCompleteQuest(20610);
+            sm.sayOk("#bChief Knights#k must have acquired another skill. I strongly suggest you go there and learn that skill with them as well. Maybe the Chief Knight may object to it, but mastering the skill is all about your ability to make a specific skill your own.");
+        } else {
+            sm.sayOk("Well, what you're doing right now doesn't make you appear humble. You just look complacent, and that's never a good thing.");
+        }
     }
 }

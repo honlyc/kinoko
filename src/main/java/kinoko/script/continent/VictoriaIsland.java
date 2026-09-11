@@ -1,27 +1,36 @@
 package kinoko.script.continent;
 
+import kinoko.provider.reward.Reward;
 import kinoko.script.common.Script;
 import kinoko.script.common.ScriptHandler;
 import kinoko.script.common.ScriptManager;
 import kinoko.server.event.EventState;
 import kinoko.server.event.EventType;
 import kinoko.server.event.Subway;
+import kinoko.server.rank.CharacterRank;
+import kinoko.server.rank.RankManager;
 import kinoko.util.Util;
+import kinoko.world.job.Job;
 import kinoko.world.job.JobConstants;
 import kinoko.world.quest.QuestRecordType;
+import kinoko.world.user.AvatarData;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
+
+import static kinoko.script.quest.ExplorerQuest.*;
 
 public final class VictoriaIsland extends ScriptHandler {
     public static final int TICKET_TO_CONSTRUCTION_SITE_B1 = 4031036;
     public static final int TICKET_TO_CONSTRUCTION_SITE_B2 = 4031037;
     public static final int TICKET_TO_CONSTRUCTION_SITE_B3 = 4031038;
-
     public static final int KERNING_SQUARE_SUBWAY_1 = 103020010; // Kerning City -> Kerning Square
     public static final int KERNING_SQUARE_SUBWAY_2 = 103020011; // Kerning Square -> Kerning City
+    public static final int REGULAR_SAUNA_PRICE = 4999;
+    public static final int VIP_SAUNA_PRICE = 9999;
 
     @Script("victoria_taxi")
     public static void victoria_taxi(ScriptManager sm) {
@@ -32,7 +41,7 @@ public final class VictoriaIsland extends ScriptHandler {
         //   Kerning City : Kerning City (103000000)
         //   Lith Harbor : Lith Harbor (104000000)
         //   Nautilus : Nautilus Harbor (120000000)
-        final boolean isBeginner = JobConstants.isBeginnerJob(sm.getJob());
+        final boolean isBeginner = JobConstants.isBeginnerJob(sm.getUser().getJob());
         final int price = isBeginner ? 100 : 1000;
         final List<Integer> towns = Stream.of(
                 100000000, // Henesys : Henesys
@@ -214,12 +223,6 @@ public final class VictoriaIsland extends ScriptHandler {
     public static void enter_VDS(ScriptManager sm) {
         // Sleepywood : Sleepywood (105000000)
         //   east00 (1759, 312)
-        final int playerLevel = sm.getUser().getLevel();
-        if (playerLevel < 50) {
-            sm.scriptProgressMessage("You cannot enter, because you do not meet the level requirement.");
-            sm.message("You must be Lv. 50 or above to enter this area.");
-            return;
-        }
         sm.playPortalSE();
         sm.warp(105010000, "west00"); // Swamp : Silent Swamp
     }
@@ -248,12 +251,127 @@ public final class VictoriaIsland extends ScriptHandler {
         sm.warp(104020120, "out00"); // Port Road : Station to Ereve
     }
 
+    @Script("Depart_topFloor")
+    public static void Depart_topFloor(ScriptManager sm) {
+        // Kerning Square  : 7th Floor 8th Floor Area A (103040400)
+        //   topFloor (-1129, 90)
+        sm.playPortalSE();
+        sm.warp(103040410, "right01"); // Kerning Square : 7th Floor 8th Floor Area B
+    }
+
+    @Script("Depart_topOut")
+    public static void Depart_topOut(ScriptManager sm) {
+        // Kerning Square  : 7th Floor 8th Floor Area A (103040400)
+        //   goDown (-442, 416)
+        sm.playPortalSE();
+        sm.warp(103040300, "fromUp"); // Kerning Square : 5th Floor 6th Floor Area A
+    }
+
+    @Script("Depart_goFoward0")
+    public static void departGoFoward0(ScriptManager sm) {
+        // Kerning Square  : 7th Floor 8th Floor Area B (103040410)
+        //   left00 (-1144, 416)
+        // Kerning Square  : VIP Zone Area A (103040440)
+        //   left00 (-1144, 416)
+        int fieldId = sm.getFieldId();
+        if (fieldId == 103040410 && sm.hasQuestCompleted(2287)) {
+            sm.playPortalSE();
+            sm.warp(103040420, "right00");
+        } else if (fieldId == 103040420 && sm.hasQuestCompleted(2288)) {
+            sm.playPortalSE();
+            sm.warp(103040430, "right00");
+        } else if (fieldId == 103040410 && sm.hasQuestStarted(2287)) {
+            sm.playPortalSE();
+            sm.warp(103040420, "right00");
+        } else if (fieldId == 103040420 && sm.hasQuestStarted(2288)) {
+            sm.playPortalSE();
+            sm.warp(103040430, "right00");
+        } else {
+            if (fieldId == 103040440 || fieldId == 103040450) {
+                sm.playPortalSE();
+                sm.warp(fieldId + 10, "right00");
+                return;
+            }
+            sm.message("You cannot access this area.");
+        }
+    }
+
+    @Script("Depart_goFoward1")
+    public static void departGoFoward1(ScriptManager sm) {
+        // Kerning Square  : 7th Floor 8th Floor Area B (103040410)
+        //   left01 (-1140, 84)
+        // Kerning Square  : 7th Floor 8th Floor Area C (103040420)
+        //   left01 (-1175, 91)
+        // Kerning Square  : VIP Zone Area A (103040440)
+        //   left01 (-1140, 84)
+        // Kerning Square  : VIP Zone Area B (103040450)
+        //   left01 (-1175, 91)
+        int fieldId = sm.getFieldId();
+        if (fieldId == 103040410 && sm.hasQuestCompleted(2287)) {
+            sm.playPortalSE();
+            sm.warp(103040420, "right01");
+        } else if (fieldId == 103040420 && sm.hasQuestCompleted(2288)) {
+            sm.playPortalSE();
+            sm.warp(103040430, "right01");
+        } else if (fieldId == 103040410 && sm.hasQuestStarted(2287)) {
+            sm.playPortalSE();
+            sm.warp(103040420, "right01");
+        } else if (fieldId == 103040420 && sm.hasQuestStarted(2288)) {
+            sm.playPortalSE();
+            sm.warp(103040430, "right01");
+        } else {
+            if (fieldId == 103040440 || fieldId == 103040450) {
+                sm.playPortalSE();
+                sm.warp(fieldId + 10, "right01");
+                return;
+            }
+            sm.message("You cannot access this area.");
+        }
+    }
+
+    @Script("Depart_goBack00")
+    public static void Depart_goBack00(ScriptManager sm) {
+        // Kerning Square  : 7th Floor 8th Floor Area C (103040420)
+        //   right00 (1256, 418)
+        // Kerning Square  : VIP Zone Area B (103040450)
+        //   right00 (1256, 418)
+        sm.playPortalSE();
+        sm.warp(sm.getFieldId() - 10, "left00");
+    }
+
+    @Script("Depart_goBack01")
+    public static void DepartGoBack01(ScriptManager sm) {
+        // Kerning Square  : 7th Floor 8th Floor Area C (103040420)
+        //   right01 (1255, 89)
+        // Kerning Square  : 7th Floor 8th Floor Area D (103040430)
+        //   right01 (1259, 88)
+        // Kerning Square  : VIP Zone Area B (103040450)
+        //   right01 (1255, 89)
+        // Kerning Square  : VIP Zone Area C (103040460)
+        //   right01 (1259, 88)
+        sm.playPortalSE();
+        sm.warp(sm.getFieldId() - 10, "left01");
+    }
+
+    @Script("halloween_enter")
+    public static void halloween_enter(ScriptManager sm) {
+        // Phantom Forest : Haunted House (682000000)
+        //   st01 (-17, 235)
+        sm.playPortalSE();
+        sm.warp(682000100);
+    }
+
     @Script("nautil_black")
     public static void nautil_black(ScriptManager sm) {
         // Muirhat (1092007)
         //   Nautilus : Top Floor - Hallway (120000100)
-
-        // TODO
+        if(!sm.hasQuestStarted(2175)) {
+            sm.sayOk("The Black Magician and his followers. Kyrin and the crew of the Nautilus. They'll be chasing one another until one of them doesn't exist, that's for sure.");
+        } else {
+            sm.sayNext("Are you ready? Good, I'll send you to where the disciples of the Black Magician are. Look for the pigs around the area where I'll be sending you. You'll be able to find it by tracking them.");
+            sm.sayNext("When they are weakened, they'll change back to their original state. If you find something suspicious, you must fight them until they are weak. I'll be here awaiting your findings.");
+            sm.warp(912000000);
+        }
     }
 
     @Script("nautil_stone")
@@ -295,6 +413,14 @@ public final class VictoriaIsland extends ScriptHandler {
                 sm.sayOk("I can't give you the empty bottle because your inventory is full. Please make some room in your Etc window.");
             }
         }
+    }
+
+    @Script("end_black")
+    public static void end_black(ScriptManager sm) {
+        // Hidden Chamber : Secret Place (912000000)
+        //   ntq1 (-290, -211)
+        sm.playPortalSE();
+        sm.warp(120000200);
     }
 
     @Script("mom_cow")
@@ -402,25 +528,664 @@ public final class VictoriaIsland extends ScriptHandler {
         }
     }
 
-    @Script("q2230e")
-    public static void q2230e(ScriptManager sm) {
-        // A Mysterious Small Egg (2230 - end)
-        sm.askMenu("Hello, traveler. You have finally come to see me. Have you fulfilled your duties?", Map.of(0, "What duties? Who are you?"));
-        sm.sayNext("You found a small egg in your pocket? That egg is your duty, your responsibility. Life is hard when you're all by yourself. In times like this, there's nothing quite like having a friend that will be there for you at all times. Have you heard of a #bpet#k?\r\nPeople raise pets to ease the burden, sorrow, and loneliness, because knowing that you have someone, or something in this matter, on your side will really bring a peace of mind. But everything has consequences, and with it comes responsibility...");
-        sm.sayBoth("Raising a pet requires a huge amount of responsibility. Remember, a pet is a form of life, as well, so you'll need to feed it, name it, share your thoughts with it, and ultimately form a bond. That's how the owners get attached to these pets.");
-        sm.sayBoth("I wanted to instill this in you, and that's why I sent you a baby that I cherish. The egg you have brought is #bRune Snail#k, a creature that is born through the power of Mana. Since you took great care of it as you brought the egg here, the egg will hatch soon.");
-        sm.sayBoth("The Rune Snail is a pet of many skills. It'll pick up items, feed you with potions, and do other things that will astound you. The downside is that since it was born out of power of Mana, its lifespan is very short. Once it turns into a doll, it'll never be able to be revived.");
-        if (!sm.askYesNo("Now do you understand? Every action comes with consequences, and pets are no exception. The egg of the snail shall hatch soon.")) {
-            // TODO: This line is not GMS-like
-            sm.sayOk("You aren't ready to take on the responsibility of a pet? I understand.. not everyone has the ability to do so.");
+    @Script("pet_letter")
+    public static void pet_letter(ScriptManager sm) {
+        // Trainer Frod : Pet Trainer (1012007)
+        //   Henesys : Pet-Walking Road (100000202)
+        if(sm.removeItem(4031035, 1)) {
+            sm.sayNext("Eh, that's my brother's letter! " +
+                    "Probably scolding me for thinking I'm not working and stuff...Eh? " +
+                    "Ahhh...you followed my brother's advice and trained your pet and got up here, huh? " +
+                    "Nice!! Since you worked hard to get here, I'll boost your intimacy level with your pet.");
+
+            sm.sayOk("What do you think? Don't you think you have gotten much closer with your pet? " +
+                    "If you have time, train your pet again on this obstacle course...of course, with my brother's permission.");
+            // TODO: Add closeness
+            // Closeness
+        } else {
+            sm.sayOk("My brother told me to take care of the pet obstacle course, " +
+                    "but ... since I'm so far away from him, I can't help but wanting to goof around ...hehe, " +
+                    "since I don't see him in sight, might as well just chill for a few minutes.");
+            sm.removeItem(4031035);
+            sm.addSkill(8, 1, 1);
+            sm.sayOk("There you go! Have fun!");
+        }
+    }
+
+    @Script("pet_lifeitem")
+    public static void pet_lifetime(ScriptManager sm) {
+        // Trainer Bartos : Pet Trainer (1012006)
+        //   Henesys : Pet-Walking Road (100000202)
+        final int answer = sm.askMenu("Do you have any business with me?", Map.of(
+                0, "#bPlease tell me about this place.",
+                1, "I'm here through a word from Mar the Fairy...#k"
+        ));
+        if(answer == 0) {
+            if(sm.hasItem(4031035, 1)) {
+                sm.sayNext("Get that letter, jump over obstacles with your pet, and take that letter to my brother Trainer Frod. Give him the letter and something good is going to happen to your pet.");
+                return;
+            }
+            if(sm.askYesNo("This is the road where you can go take a walk with your pet. You can just walk around with it, or you can train your pet to go through the obstacles here. If you aren't too close with your pet yet, that may present a problem and he will not follow your command as much... So, what do you think? Wanna train your pet?")) {
+                if(!sm.canAddItem(4031035, 1)) {
+                    sm.sayOk("Please make room in your inventory and talk to me again.");
+                    return;
+                }
+                sm.addItem(4031035, 1);
+                sm.sayNext("Ok, here's the letter. He wouldn't know I sent you if you just went there straight, so go through the obstacles with your pet, go to the very top, and then talk to Trainer Frod to give him the letter. It won't be hard if you pay attention to your pet while going through obstacles. Good luck!");
+            }
+        } else if(answer == 1) {
+            sm.sayOk("Hey, are you sure you've met #bMar the Fairy#k? Don't lie to me if you've never met her before because it's obvious. That wasn't even a good lie!!");
+        }
+    }
+
+    @Script("hotel1")
+    public static void hotel1(ScriptManager sm) {
+        // Hotel Receptionist (1061100)
+        //   Sleepywood : Sleepywood Hotel (105000010)
+        sm.sayNext("Welcome. We're the Sleepywood Hotel. Our hotel works hard to serve you the best at all times. If you are tired and worn out from hunting, how about a relaxing stay at our hotel?");
+        final int answer = sm.askMenu("We offer two kinds of rooms for our service. Please choose the one of your liking.", Map.of(
+                0, "Regular sauna (" + REGULAR_SAUNA_PRICE + " mesos per use)",
+                1, "VIP sauna (" + VIP_SAUNA_PRICE + " mesos per use)"
+        ));
+        if(answer == 0) {
+            if(sm.askYesNo("You have chosen the regular sauna. Your HP and MP will recover fast and you can even purchase some items there. Are you sure you want to go in?")) {
+                if(!sm.canAddMoney(-REGULAR_SAUNA_PRICE)) {
+                    sm.sayNext("I'm sorry. It looks like you don't have enough mesos. It will cost you at least " + REGULAR_SAUNA_PRICE + " mesos to stay at our hotel.");
+                    return;
+                }
+                sm.warp(105000011);
+                sm.addMoney(-REGULAR_SAUNA_PRICE);
+            }
+        } else if(answer == 1) {
+            if(sm.askYesNo("You've chosen the VIP sauna. Your HP and MP will recover even faster than that of the regular sauna and you can even find a special item in there. Are you sure you want to go in?")) {
+                if(!sm.canAddMoney(-VIP_SAUNA_PRICE)) {
+                    sm.sayNext("I'm sorry. It looks like you don't have enough mesos. It will cost you at least " + VIP_SAUNA_PRICE + " mesos to stay at our hotel.");
+                    return;
+                }
+                sm.warp(105000012);
+                sm.addMoney(-VIP_SAUNA_PRICE);
+            }
+        }
+    }
+
+    @Script("Dual_moveGate")
+    public static void dualMoveGate(ScriptManager sm) {
+        // Kerning City : Kerning City (103000000)
+        //   dual00 (-43, -144)
+        sm.playPortalSE();
+        sm.warp(103050000);
+    }
+
+    @Script("dual_ballRoom")
+    public static void dualBallRoom(ScriptManager sm) {
+        // Victoria Road : The Secret Garden 2nd Floor (103050100)
+        //   quest00 (85, 150)
+        if(sm.hasQuestStarted(2363)) {
+            sm.playPortalSE();
+            sm.warp(910350000, "out00");
+        }
+    }
+
+    @Script("dual_ball00")
+    public static void dualBall00(ScriptManager sm) {
+        // dual_ball00 (1032001)
+        //   Hidden Street : Marble Room (910350000)
+        sm.dropRewards(List.of(Reward.item(2430071, 1, 1, 1)));
+        sm.setReactorState(1032001, 0);
+    }
+
+    @Script("consume_2430071")
+    public static void consume_2430071(ScriptManager sm) {
+        // Opalescent Glass Marble (2430071)
+        final int randomInt = sm.getRandomIntBelow(1);
+        if(randomInt == 0 && !sm.hasItem(4032616, 1)) {
+            sm.addItem(4032616, 1);
+            sm.broadcastMessage("You've retrieved a Mirror of Insight from the shattered Opalescent Glass Marble.");
+            sm.avatarOriented("Effect/OnUserEff.img/itemEffect/quest/2430071");
+        } else {
+            sm.broadcastMessage("The Opalescent Glass Marble has shattered. Nothing is inside.");
+            sm.avatarOriented("Effect/OnUserEff.img/itemEffect/quest/2430071");
+        }
+        sm.removeItem(2430071, 1);
+    }
+
+    @Script("q2363e")
+    public static void q2363e(ScriptManager sm) {
+        // Dual Blade: Time for the Awakening (2363 - end)
+        if(sm.askYesNo("This is great. The Mirror of Insight has chosen you, Are you ready to awaken as a Dual Blade?")) {
+            if(sm.hasItem(4032616, 1) && !sm.hasQuestCompleted(2363)) {
+                sm.removeItem(4032616);
+                sm.addItem(1342000, 1);
+                sm.forceCompleteQuest(2363);
+                sm.setJob(Job.BLADE_RECRUIT);
+                sm.sayOk("From this moment, you are a #bBlade Recruit#k. Please have pride in all that you do.");
+            }
+        }
+    }
+
+    @Script("dual_lv20")
+    public static void dual_lv20(ScriptManager sm) {
+        // Victoria Road : The Secret Garden Basement (103050300)
+        //   in00 (481, 151)
+        if(sm.getLevel() >= 20) {
+            sm.playPortalSE();
+            sm.warp(103050310);
+        } else {
+            sm.message("You must be level 20.");
+        }
+    }
+
+    @Script("dual_lv25")
+    public static void dual_lv25(ScriptManager sm) {
+        // Victoria Road : The Secret Garden Basement (103050300)
+        //   in01 (883, 150)
+        if(sm.getLevel() >= 25) {
+            sm.playPortalSE();
+            sm.warp(103050340);
+        } else {
+            sm.message("You must be level 25.");
+        }
+    }
+
+    @Script("dual_lv30")
+    public static void dual_lv30(ScriptManager sm) {
+        // Victoria Road : The Secret Garden Basement (103050300)
+        //   in02 (1283, 149)
+        if(sm.getLevel() >= 30) {
+            sm.playPortalSE();
+            sm.warp(103050370);
+        } else {
+            sm.message("You must be level 30.");
+        }
+    }
+
+    @Script("dual_secret")
+    public static void dualSecret(ScriptManager sm) {
+        // Kerning City : Thieves' Hideout (103000003)
+        //   secret00 (49, -95)
+        if (sm.hasQuestStarted(2369) && !sm.hasItem(4032617)) {
+            sm.playPortalSE();
+            sm.warpInstance(910350100, "out00", 910350100, 10 * 60);
+        }
+    }
+
+    @Script("dual_Diary")
+    public static void dualDiary(ScriptManager sm) {
+        // Former Dark Lord's Diary (1052126)
+        //   Hidden Street : Former Dark Lord's Room (910350100)
+        //   Hidden Street : Former Dark Lord's Room (910350101)
+        //   Hidden Street : Former Dark Lord's Room (910350102)
+        //   Hidden Street : Former Dark Lord's Room (910350103)
+        //   Hidden Street : Former Dark Lord's Room (910350104)
+        //   Hidden Street : Former Dark Lord's Room (910350105)
+        //   Hidden Street : Former Dark Lord's Room (910350106)
+        //   Hidden Street : Former Dark Lord's Room (910350107)
+        //   Hidden Street : Former Dark Lord's Room (910350108)
+        //   Hidden Street : Former Dark Lord's Room (910350109)
+        if(!sm.getQRValue(QuestRecordType.DualBladeDualDiary).equals("1")) {
+            sm.useSummoningSack(2109012, 98, 149);
+            sm.setQRValue(QuestRecordType.DualBladeDualDiary, "1");
+        } else if(sm.getField().getMobPool().isEmpty()) {
+            if(!sm.canAddItem(4032617, 1)) {
+                sm.sayOk("Open up one slot in your Etc inventory before continuing.");
+                return;
+            }
+
+            sm.addItem(4032617, 1);
+            sm.sayOk("You've obtained the Former Dark Lord's Diary. You better leave before someone comes in.");
+        }
+    }
+
+    @Script("q2369e")
+    public static void q2369e(ScriptManager sm) {
+        // Dual Blade: Time for the Awakening (2369 - end)
+        sm.sayNext("Finally... I have my father's Diary. Thank you. I am starting to trust you even more. Your current position doesn't seem to suit your great abilities. I think you have the qualifications to advance to a #bBlade Acolyte#k. I will advance you to a Blade Acolyte now.");
+        if (sm.hasItem(4032617, 1) && !sm.hasQuestCompleted(2369)){
+            if(!sm.canAddItem(1052244, 1)) {
+                sm.sayNext("Please make room in your Equip Inventory.");
+                return;
+            }
+
+            sm.removeItem(4032616);
+            sm.addItem(1052244, 1);
+            sm.forceCompleteQuest(2369);
+            sm.setJob(Job.BLADE_ACOLYTE);
+            sm.addSkill(4311003, 0, 20);
+            sm.sayNext("My father's diary... Father would often write in a code that only he and I could understand. Wait, in the last chapter... This!");
+        } else if(sm.hasQuestCompleted(2369)) {
+            sm.sayNext("My father's diary... Father would often write in a code that only he and I could understand. Wait, in the last chapter... This!");
+        }
+        sm.sayBoth("This can't be! It's a lie! Jin! How dare you lay a finger on my father's diary!\\r\\n\\r\\n#b(Lady Syl drops the diary and it falls to the ground.)#k");
+        sm.sayBoth("#b(You pick up the book and start reading it.)\\r\\n\\r\\n- Date: XX-XX-XXXX -\\r\\nTeacher has passed away... Three days ago, teacher left for the Cursed Sanctuary at the request of Tristan. Syl seemed worried so I decided to go look for him. When I arrived at the entrance of the Sanctuary, I heard a shriek that made me shiver...");
+        sm.sayBoth("#bWhen I jumped into the darkness of the sanctuary, I came face to face with a red-eyed monster spewing evil energy. Teacher was nowhere to be seen. The monster started attacking. After a fierece battle, I finally succeeded in killing it. However, the fallen monster soon turned into... teacher.");
+        sm.sayBoth("#bI attempted to help teacher, but he passed in my arms. Before he passed, he whispered, My soul was trapped within the Balrog. You freed me... Now, take care of Kerning City and Syl.... and... please don't tell a soul about this. I can't forgive myself for allowing the demon to steal my soul.");
+        sm.sayBoth("#bAs he wished, I will never reveal what happened. His secrets--along with his diary-\\r\\n-will forever be sealed.- Jin -");
+    }
+
+    @Script("outSecondDH")
+    public static void outSecondDH(ScriptManager sm) {
+        // Kiriko : Drill Hall Gatekeeper (1102001)
+        //   Hidden Street : First Drill Hall (913001000)
+        //   Hidden Street : First Drill Hall (913001001)
+        //   Hidden Street : First Drill Hall (913001002)
+        if(sm.askYesNo("Are you done with the Knighthood Exam? Should I let you out?")) {
+            sm.warp(130020000);
+        }
+    }
+
+    @Script("q20201e")
+    public static void q20201e(ScriptManager sm) {
+        // Knighthood Exam: Dawn Warrior (20201 - end)
+        if (sm.hasItem(4032096, 30)) {
+            sm.sayNext("So you brought all the #bProof of Exam#k... Okay, I believe that you are not qualified to become an official knight.");
+            if(sm.askYesNo("Are you interested in becoming an Official Knight?")) {
+                if(!sm.canAddItem(1142066, 1)) {
+                    sm.sayOk("Please make room in your EQP inventory.");
+                    return;
+                }
+                sm.removeItem(4032096);
+                sm.addItem(1142066, 1);
+                sm.forceCompleteQuest(20201);
+                sm.setJob(Job.DAWN_WARRIOR_2);
+            }
+        }
+    }
+
+    @Script("q20202e")
+    public static void q20202e(ScriptManager sm) {
+        // Knighthood Exam: Blaze Wizard (20202 - end)
+        if (sm.hasItem(4032097, 30)) {
+            sm.sayNext("So you brought all the #bProof of Exam#k... Okay, I believe that you are not qualified to become an official knight.");
+            if(sm.askYesNo("Are you interested in becoming an Official Knight?")) {
+                if(!sm.canAddItem(1142066, 1)) {
+                    sm.sayOk("Please make room in your EQP inventory.");
+                    return;
+                }
+                sm.removeItem(4032097);
+                sm.addItem(1142066, 1);
+                sm.forceCompleteQuest(20202);
+                sm.setJob(Job.BLAZE_WIZARD_2);
+            }
+        }
+    }
+
+    @Script("q20203e")
+    public static void q20203e(ScriptManager sm) {
+        // Knighthood Exam: Wind Archer (20203 - end)
+        if (sm.hasItem(4032098, 30)) {
+            sm.sayNext("So you brought all the #bProof of Exam#k... Okay, I believe that you are not qualified to become an official knight.");
+            if(sm.askYesNo("Are you interested in becoming an Official Knight?")) {
+                if(!sm.canAddItem(1142066, 1)) {
+                    sm.sayOk("Please make room in your EQP inventory.");
+                    return;
+                }
+                sm.removeItem(4032098);
+                sm.addItem(1142066, 1);
+                sm.forceCompleteQuest(20203);
+                sm.setJob(Job.WIND_ARCHER_2);
+            }
+        }
+    }
+
+    @Script("q20204e")
+    public static void q20204e(ScriptManager sm) {
+        // Knighthood Exam: Night Walker (20204 - end)
+        if (sm.hasItem(4032099, 30)) {
+            sm.sayNext("So you brought all the #bProof of Exam#k... Okay, I believe that you are not qualified to become an official knight.");
+            if(sm.askYesNo("Are you interested in becoming an Official Knight?")) {
+                if(!sm.canAddItem(1142066, 1)) {
+                    sm.sayOk("Please make room in your EQP inventory.");
+                    return;
+                }
+                sm.removeItem(4032099);
+                sm.addItem(1142066, 1);
+                sm.forceCompleteQuest(20204);
+                sm.setJob(Job.NIGHT_WALKER_2);
+            }
+        }
+    }
+
+    @Script("q20205e")
+    public static void q20205e(ScriptManager sm) {
+        // Knighthood Exam: Thunder Breaker (20205 - end)
+        if (sm.hasItem(4032100, 30)) {
+            sm.sayNext("So you brought all the #bProof of Exam#k... Okay, I believe that you are not qualified to become an official knight.");
+            if(sm.askYesNo("Are you interested in becoming an Official Knight?")) {
+                if(!sm.canAddItem(1142066, 1)) {
+                    sm.sayOk("Please make room in your EQP inventory.");
+                    return;
+                }
+                sm.removeItem(4032100);
+                sm.addItem(1142066, 1);
+                sm.forceCompleteQuest(20205);
+                sm.setJob(Job.THUNDER_BREAKER_2);
+            }
+        }
+    }
+
+    @Script("q2374e")
+    public static void q2374e(ScriptManager sm) {
+        // Arec's Secret Letter (2374 - end)
+        sm.sayNext("I've been waiting for you. Do you have Arec's answer?\\r\\nPlease give me his letter.");
+        sm.sayBoth("We have finally received Arec's official recognition. This is an important movement for us. It's also time that you experience a change.");
+        if(sm.hasItem(4032619) && !sm.hasQuestCompleted(2374)) {
+            if(!sm.canAddItem(1132021, 1)) {
+                sm.sayOk("Please free at least one Equip slot before advancing to Blade Specialist.");
+                return;
+            }
+
+            sm.removeItem(4032619);
+            sm.addItem(1132021, 1);
+            sm.forceCompleteQuest(2374);
+            sm.setJob(Job.BLADE_SPECIALIST);
+            sm.addSkill(4321000, 0, 20);
+            sm.sayOk("Now that we have Arec's Recognition, you can make a job advancement by going to see him when you reach Lv. 70. Finally, a new future has been opened for the Dual Blades.");
+        }
+    }
+
+    @Script("subway_out")
+    public static void subway_out(ScriptManager sm) {
+        // Exit (1052011)
+        //   B1 : Area 1 (910360000)
+        //   B1 : Area 2 (910360001)
+        //   B2 : Area 1 (910360100)
+        //   B2 : Area 2 (910360101)
+        //   B3 : Area 1 (910360200)
+        //   B3 : Area 2 (910360201)
+        //   B3 : Area 3 (910360202)
+        if(!sm.askYesNo("This device is connected to the outside. Will you give up and leave this place? You'll have to start from where you started the next time you come here...")) {
+            sm.playPortalSE();
+            sm.warp(103000100);
+        }
+    }
+
+    @Script("herb_in")
+    public static void herb_in(ScriptManager sm) {
+        if (sm.hasQuestStarted(2051) || sm.hasQuestCompleted(2051)) {
+            final int mapId = 101000102;
+
+            if (sm.hasQuestStarted(2051)) {
+                final int price = sm.getLevel() * 200;
+                if (!sm.askYesNo("It's you from the other day. Did " + npcName(1061005) + " make another request to you? What? You need to go in further this time? Hmm ... it's pretty dangerous in there, but ... alright, for " + red(String.valueOf(price)) + " mesos I'll let you in that deep. So, do you want to pay your way in?")) {
+                    sm.sayOk("I see ... but understand that you can't get in here for free.");
+                    return;
+                }
+
+                if (!sm.addMoney(-price)) {
+                    sm.warp(mapId);
+                } else {
+                    sm.sayOk("Do you not have enough Mesos? Will you check whether you have more than " + red(String.valueOf(price)) + " Mesos? Don't even try to ask me for a discount.");
+                }
+            } else {
+                sm.sayNext("It's you again. Is " + npcName(1061005) + " busy making ant-aging serum? Anyway, honestly, I was a little shocked that you were able to get through this place. For that, I'll let you enter free of charge. You might be able to get some precious items deep inside...");
+                if (!sm.askYesNo("Oh, by the way... once, " + npcName(1032100) + " of this town had secretly gone inside, and when I caught her, she was so taken aback that she lost her " + blue(itemName(1032013)) + " in there. I tried to look for it but couldn't figure out where it was... Do you think you can go in and find it? Would you like to enter now?")) {
+                    sm.sayOk("Suit yourself. I was trying to be considerate for once.");
+                    return;
+                }
+
+                sm.warp(mapId);
+            }
+        } else if (sm.hasQuestStarted(2050) || sm.hasQuestCompleted(2050)) {
+            final int mapId = 101000100;
+
+            if (sm.hasQuestStarted(2050)) {
+                final int price = sm.getLevel() * 100;
+
+                if (!sm.askYesNo("So you came here at the request of " + npcName(1061005) + " to take the medicinal herb? Well...I inherited this land from my father and I can't let some stranger in just like that... But, with " + red(String.valueOf(price)) + " mesos, it's a whole different story... So, do you want to pay your way in?")) {
+                    sm.sayOk("I see ... but understand that you can't get in here for free.");
+                    return;
+                }
+
+                if (!sm.addMoney(-price)) {
+                    sm.sayOk("Lacking mesos by any chance? Make sure you have more than " + red(String.valueOf(price)) + " mesos on hand. Don't expect me to give you any discounts.");
+                    return;
+                }
+
+                sm.warp(mapId);
+            } else {
+                if (!sm.askYesNo("It's you again. Is " + npcName(1061005) + " busy making diet pills? Anyway, honestly, I was a little shocked that you were able to get through this place. For that, I'll let you enter free of charge. You might be able to get some precious items deep inside... Would you like to enter now?")) {
+                    sm.sayOk("Suit yourself. I was trying to be considerate for once.");
+                    return;
+                }
+
+                sm.warp(mapId);
+            }
+        } else {
+            sm.sayOk("You want to go in? Must have heard that there's a precious medicinal herb in here, huh? But I can't let some stranger like you who doesn't know that I own this land in. I'm sorry but I'm afraid that's all there is to it.");
+        }
+    }
+
+    @Script("herb_out")
+    public static void herb_out(ScriptManager sm) {
+        if (!sm.askYesNo("You want to get out of here? Well... this place can really wear you down... I'm used to it so I'm fine, though. Anyway make sure you remember that if you leave this place through me, you'll have to restart the mission. Do you still want to?")) {
+            sm.sayOk("Isn't it awful that you have to restart the whole thing? Keep trying...the more you go through it, the more you'll know about this place in and out. Pretty soon you'll be able to go through this with your eyes closed hehe.");
             return;
         }
-        if (sm.canAddItem(5000054, 1) && sm.removeItem(4032086)) {
-            sm.addItemWithExpiration(5000054, 5 * 60 * 60); // 5 hour duration
-            sm.forceCompleteQuest(2230);
-            sm.sayNext("This snail will only be alive for #b5 hours#k. Shower it with love. Your love will be reciprocated in the end.");
+
+        sm.warp(101000000, "tp");
+    }
+
+    @Script("bush1")
+    public static void bush1(ScriptManager sm) {
+        if (sm.hasQuestStarted(2050)) {
+            final int item = 4031020;
+            if (sm.askYesNo("Are you sure you want to take " + blue(itemName(item)) + " with you?")) {
+                if (!sm.addItem(item, 1)) {
+                    sm.sayOk("Your etc. inventory seems to be full. Please make room in order to take the item.");
+                    return;
+                }
+
+                sm.warp(101000000);
+            }
         } else {
-            sm.sayOk("I need you to have a CASH slot available to reward you properly!");
+            List<Integer> listOfItems = List.of(4010000, 4010001, 4010002, 4010003, 4010004, 4010005, 4020000, 4020001, 4020002, 4020003, 4020004, 4020005, 4020006);
+            final int item = listOfItems.get(sm.getRandomIntBelow(listOfItems.size()));
+
+            if (!sm.addItem(item, 2)) {
+                sm.sayOk("You need to have at least one free slot available on your etc. inventory to keep the item you found in the midst of flowers. Please make room and then try again.");
+                return;
+            }
+
+            sm.warp(101000000);
+        }
+    }
+
+    @Script("bush2")
+    public static void bush2(ScriptManager sm) {
+        if (sm.hasQuestStarted(2051)) {
+            final int item = 4031032;
+            if (sm.askYesNo("Are you sure you want to take " + blue(itemName(item)) + " with you?")) {
+                if (!sm.addItem(item, 1)) {
+                    sm.sayOk("Your etc. inventory seems to be full. Please make room in order to take the item.");
+                    return;
+                }
+
+                sm.warp(101000000);
+            }
+        } else {
+            final int chance = sm.getRandomIntBelow(30);
+            int item = -1;
+            int qty = -1;
+
+            if (chance == 30) {
+                item = 1032013;
+                qty= 1;
+            } else {
+                List<Integer> listOfItems = List.of(4020007, 4020008, 4010006);
+                item = listOfItems.get(sm.getRandomIntBelow(listOfItems.size()));
+                qty = 2;
+            }
+
+            if (!sm.addItem(item, qty)) {
+                sm.sayOk("You need to have at least one free slot available on your etc. inventory to keep the item you found in the midst of flowers. Please make room and then try again.");
+                return;
+            }
+
+            sm.warp(101000000);
+        }
+    }
+
+    @Script("q2073")
+    public static void q2073(ScriptManager sm) {
+        if (sm.hasQuestStarted(2073)) {
+            sm.warp(900000000, "out01");
+        } else {
+            sm.message("A mysterious force is blocking your progress...");
+        }
+    }
+
+    @Script("rank_user")
+    public static void rank_user(ScriptManager sm) {
+        // TODO: Make sure GMS-like
+        final Optional<CharacterRank> characterRankResult = RankManager.getCharacterRank(AvatarData.from(sm.getUser().getCharacterData()));
+        if (characterRankResult.isPresent()) {
+            CharacterRank rank = characterRankResult.get();
+            String jobBranchName = sm.getJob().getJobBranchName();
+            String prompt = "Hi, I am " + blue(npcName(sm.getSpeakerId())) + ", " + red(Util.ordinal(rank.getJobRank())) + " in the " + red(jobBranchName) + " class to reach the max level and obtain a statue on Scania.\r\n";
+            prompt += "\r\n     World rank: " + bold(blue(Util.ordinal(rank.getWorldRank())));
+            sm.sayOk(prompt);
+        }
+    }
+
+    @Script("q21712s")
+    public static void q21712s(ScriptManager sm) {
+        sm.sayNext(itemName(4032315) + "... " + red("This puppet is making a strange noise") + ". You can't hear it with your ears, of course, since it can only be heard by the " + mobName(1210102) +"s. I believe it's this noise that changed the personality of the " + mobName(1210102) + "s.");
+        if (sm.askAccept("The " + mobName(1210102) + "s that have been affected by the noise have turned cynical. They've started fighting the non-affected " + mobName(1210102) + "s, which has made all " + mobName(1210102) + " prepare for combat. " + blue("The reason for all these changes in the " + mobName(1210102) + " is this puppet") + "! Do you understand?")) {
+            sm.sayNext("I wonder what triggered this in the first place. There is no way this puppet was naturally created, which means someone planned this. I should keep an eye on the " + mobName(1210102) + "s.");
+            sm.forceStartQuest(21712);
+            sm.setPlayerAsSpeaker(true);
+            sm.sayBoth(blue("(You were able to find out what caused the changes in the " + mobName(1210102) + "s. You should report to " + npcName(1002104) + " and deliver the information you\"ve gathered.)"));
+        } else {
+            sm.sayOk("You still don't understand what's going on? I'll explain it to you again if you talk to me one more time.");
+        }
+    }
+
+    @Script("q2148s")
+    public static void q2148s(ScriptManager sm) {
+        sm.sayOk("Thank you so much.");
+        sm.forceCompleteQuest(2148);
+    }
+
+    @Script("q2149s")
+    public static void q2149s(ScriptManager sm) {
+        sm.sayOk("Thank you so much.");
+        sm.forceCompleteQuest(2149);
+    }
+
+    @Script("q2150s")
+    public static void q2150s(ScriptManager sm) {
+        sm.sayOk("Thank you so much.");
+        sm.forceCompleteQuest(2150);
+    }
+
+    @Script("q2151s")
+    public static void q2151s(ScriptManager sm) {
+        sm.sayOk("Thank you so much.");
+        sm.forceCompleteQuest(2151);
+    }
+
+    @Script("q2152s")
+    public static void q2152s(ScriptManager sm) {
+        sm.sayOk("Thank you so much.");
+        sm.forceCompleteQuest(2152);
+    }
+
+    @Script("s4strike")
+    public static void s4strike(ScriptManager sm) {
+        sm.sayOk("Who are you talking to? Me? If you're just bored, go bother somebody else.");
+    }
+
+    @Script("s4mind_in")
+    public static void s4mind_in(ScriptManager sm) {
+        sm.sayOk("Anyone can work out in the training room. If you're a true Pirate, you should be working out here at least once a day.");
+    }
+
+    @Script("multipet_success")
+    public static void multipet_success(ScriptManager sm) {
+        if (!sm.hasQuestStarted(4646) || sm.hasQuestCompleted(4646)) {
+            sm.setPlayerAsSpeaker(true);
+            sm.sayOk(blue("(I couldn't find anything.)"));
+            return;
+        }
+
+        sm.setPlayerAsSpeaker(true);
+        if (!sm.askYesNo("(I can see something covered in grass. Should I pull it out?)")) {
+            sm.sayOk(blue("(I didn't touch this hidden item covered in grass)"));
+            return;
+        }
+
+        if (!sm.addItem(4031921, 1)) {
+            // TODO: GMS-like
+            sm.sayOk("Please check whether your ETC. inventory is full.");
+            return;
+        }
+
+        sm.sayNext(blue("(I found the item that Pet Trainer Bartos hid... this note.)"));
+    }
+
+    @Script("multipet_fail")
+    public static void multipet_fail(ScriptManager sm) {
+        sm.setPlayerAsSpeaker(true);
+        if (!sm.askYesNo(blue("(I can see something covered in grass. Should I pull it out?)"))) {
+            sm.sayOk(blue("(I didn't think much of it, so I didn't touch it.)"));
+            return;
+        }
+
+        if (!sm.addItem(4031922, 1)) {
+            // TODO: GMS like
+            sm.setPlayerAsSpeaker(false);
+            sm.sayOk("Please check whether your ETC. inventory is full.");
+        }
+
+        sm.sayNext(blue("(Yuck... it's pet poop!)"));
+    }
+
+    @Script("q4647e")
+    public static void q4647e(ScriptManager sm) {
+        if (!sm.removeItem(5460000, 1)) {
+            sm.sayOk("Get me the Pet Snack! It can be found in a very big shop...");
+            return;
+        }
+
+        sm.sayNext("You got the Pet Snack! Thanks! You can use these to feed multiple pets at once!");
+        sm.addSkill(8, 1, 1);
+        sm.forceCompleteQuest(4647);
+    }
+
+    @Script("tutorialNPC")
+    public static void tutorialNPC(ScriptManager sm) {
+        if (sm.getLevel() <= 10 && sm.getJob() == Job.BEGINNER) {
+            int fieldId = sm.getFieldId();
+
+            switch (fieldId) {
+                case 120000101 -> {
+                    sm.setSpeakerId(1090000);
+                    kairinT(sm);
+                }
+                case 102000003 -> {
+                    sm.setSpeakerId(1022000);
+                    fighter(sm);
+                }
+                case 103000003 -> {
+                    sm.setSpeakerId(1052001);
+                    rogue(sm);
+                }
+                case 100000201 -> {
+                    sm.setSpeakerId(1012100);
+                    bowman(sm);
+                }
+                case 101000003 -> {
+                    sm.setSpeakerId(1032001);
+                    magician(sm);
+                }
+            }
+        }
+    }
+
+    @Script("rowen")
+    public static void rowen(ScriptManager sm) {
+        if (sm.hasQuestStarted(21714)) {
+            sm.warp(910100002);
         }
     }
 }

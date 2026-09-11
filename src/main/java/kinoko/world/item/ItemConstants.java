@@ -26,6 +26,7 @@ public final class ItemConstants {
 
     public static final int MIRACLE_CUBE = 5062000;
     public static final int REGULAR_STORE_PERMIT = 5140000;
+    public static final int HOLIDAY_STORE_PERMIT = 5140006;
     public static final int WHEEL_OF_DESTINY = 5510000;
 
 
@@ -92,9 +93,7 @@ public final class ItemConstants {
         return itemId / 10000 == 212;
     }
 
-    public static boolean isMobSummonItem(int itemId) {
-        return itemId / 10000 == 210;
-    }
+    public static boolean isMobSummonItem(int itemId) { return itemId / 10000 == 210; }
 
     public static boolean isPortalScrollItem(int itemId) {
         return itemId / 10000 == 203;
@@ -151,7 +150,7 @@ public final class ItemConstants {
     }
 
     public static boolean isBlackUpgradeItem(int itemId) {
-        return itemId / 100 == 20491 && (itemId < 2049105 || itemId > 2049110); // chaos scrolls, 5 dark scrolls bugged in client
+        return itemId / 100 == 20491; // chaos scrolls
     }
 
     public static boolean isAccUpgradeItem(int itemId) {
@@ -191,7 +190,7 @@ public final class ItemConstants {
         }
         final int upgradeItemType = (upgradeItemId - 2040000) / 100;
         final int equipItemType = equipItemId / 10000 % 100;
-        if (isAccUpgradeItem(upgradeItemId)) {
+        if (isAccUpgradeItem(upgradeItemType)) {
             return equipItemType >= 11 && equipItemType <= 13; // ring, pendant, belt
         }
         if (isNewUpgradeItem(upgradeItemId) || isDurabilityUpgradeItem(upgradeItemId)) {

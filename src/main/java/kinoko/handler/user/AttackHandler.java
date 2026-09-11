@@ -16,6 +16,7 @@ import kinoko.server.header.OutHeader;
 import kinoko.server.packet.InPacket;
 import kinoko.util.Util;
 import kinoko.world.GameConstants;
+import kinoko.world.autoban.AutoBanFactory;
 import kinoko.world.field.Field;
 import kinoko.world.field.affectedarea.AffectedArea;
 import kinoko.world.field.drop.Drop;
@@ -30,6 +31,7 @@ import kinoko.world.field.summoned.Summoned;
 import kinoko.world.field.summoned.SummonedAssistType;
 import kinoko.world.field.summoned.SummonedMoveAbility;
 import kinoko.world.item.*;
+import kinoko.world.job.Job;
 import kinoko.world.job.JobConstants;
 import kinoko.world.job.cygnus.BlazeWizard;
 import kinoko.world.job.cygnus.DawnWarrior;
@@ -295,6 +297,7 @@ public final class AttackHandler {
     }
 
     private static void handleAttack(User user, Attack attack) {
+        final Field field = user.getField();
         // Assign attack random
         for (AttackInfo ai : attack.getAttackInfo()) {
             ai.random = user.getCalcDamage().getNextAttackRandom();
@@ -354,7 +357,7 @@ public final class AttackHandler {
             }
             final SkillInfo si = skillInfoResult.get();
             if (si.getLevelDataCrc(attack.slv) != attack.crc) {
-                log.warn("Received mismatching CRC for skill ID : {}", attack.skillId);
+                log.warn("Received mismatching CRC for user {} for skill ID : {}", user, attack.skillId);
             }
         }
 
@@ -493,8 +496,16 @@ public final class AttackHandler {
         // Process attack
         int hpGain = 0;
         int mpGain = 0;
+
+        int totalMobsHit = attack.getAttackInfo().size();
+        int mobCount = field.getMobPool().getCount();
+        if (totalMobsHit > mobCount) {
+            AutoBanFactory.MOB_COUNT.autoban(user, "Skill: " + attack.skillId + "; Count: " + totalMobsHit + " Max: " + mobCount);
+            return;
+        }
+
         for (AttackInfo ai : attack.getAttackInfo()) {
-            final Optional<Mob> mobResult = user.getField().getMobPool().getById(ai.mobId);
+            final Optional<Mob> mobResult = field.getMobPool().getById(ai.mobId);
             if (mobResult.isEmpty()) {
                 continue;
             }
@@ -515,6 +526,7 @@ public final class AttackHandler {
             // Handle skills
             handlePickpocket(user, attack, mob);
             handleOwlSpirit(user, attack, mob.getMaxHp() == totalDamage);
+            handleDragonWisdom(user, totalDamage);
             if (attack.skillId == Aran.COMBO_TEMPEST) {
                 // client sends normal damage for bosses, normal mobs are set to 1 hp
                 if (!mob.isBoss()) {
@@ -560,7 +572,7 @@ public final class AttackHandler {
         }
 
         // Broadcast packet
-        user.getField().broadcastPacket(UserRemote.attack(user, attack), user);
+        field.broadcastPacket(UserRemote.attack(user, attack), user);
 
         // Process hp/mp gains
         if (hpGain > 0) {
@@ -572,7 +584,7 @@ public final class AttackHandler {
             final int skillId = SkillConstants.getMpEaterSkill(user.getJob());
             final int slv = user.getSkillLevel(skillId);
             user.write(UserLocal.effect(Effect.skillUse(skillId, slv, user.getLevel())));
-            user.getField().broadcastPacket(UserRemote.effect(user, Effect.skillUse(skillId, slv, user.getLevel())), user);
+            field.broadcastPacket(UserRemote.effect(user, Effect.skillUse(skillId, slv, user.getLevel())), user);
         }
         if (attack.exJablin != 0) {
             user.getCalcDamage().setNextAttackCritical(true);
@@ -618,6 +630,27 @@ public final class AttackHandler {
         }
         if (!drops.isEmpty()) {
             user.getField().getDropPool().addDrops(drops, DropEnterType.CREATE, mob.getX(), mob.getY() - GameConstants.DROP_HEIGHT, 0, 120);
+        }
+    }
+
+    private static void handleDragonWisdom(User user, int totalDamage) {
+        // Resolve skill info
+        final int skillId = Warrior.DRAGON_WISDOM;
+        final Optional<SkillInfo> skillInfoResult = SkillProvider.getSkillInfoById(skillId);
+        if (skillInfoResult.isEmpty()) {
+            log.warn("Could not resolve skill info for dragon wisdom skill ID : {}", skillId);
+            return;
+        }
+        final SkillInfo si = skillInfoResult.get();
+        final int slv = user.getSkillLevel(skillId);
+        // Calculate HP regen
+        if (slv > 0) {
+            if (Util.succeedProp(si.getValue(SkillStat.prop, slv))) {
+                final int hpRecovery = totalDamage * si.getValue(SkillStat.x, slv) / 100;
+                user.addHp(hpRecovery);
+                user.write(UserLocal.effect(Effect.incDecHpEffect(hpRecovery)));
+                user.getField().broadcastPacket(UserRemote.effect(user, Effect.incDecHpEffect(hpRecovery)), user);
+            }
         }
     }
 

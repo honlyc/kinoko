@@ -101,8 +101,10 @@ public abstract class Event {
         // Resolve and change reactor state
         field.getReactorPool().forEach((reactor) -> {
             if (reactor.getTemplateId() == reactorTemplateId) {
-                reactor.setState(newState);
-                field.broadcastPacket(FieldPacket.reactorChangeState(reactor, 0, 0, 0));
+                try (var lockedReactor = reactor.acquire()) {
+                    reactor.setState(newState);
+                    field.broadcastPacket(FieldPacket.reactorChangeState(reactor, 0, 0, 0));
+                }
             }
         });
     }

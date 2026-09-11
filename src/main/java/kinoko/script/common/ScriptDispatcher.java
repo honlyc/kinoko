@@ -1,5 +1,6 @@
 package kinoko.script.common;
 
+import kinoko.packet.world.MessagePacket;
 import kinoko.provider.map.PortalInfo;
 import kinoko.server.node.ServerExecutor;
 import kinoko.world.GameConstants;
@@ -20,8 +21,8 @@ import java.util.concurrent.Executors;
 
 public final class ScriptDispatcher {
     private static final Logger log = LogManager.getLogger(ScriptDispatcher.class);
-    private static final ExecutorService scriptExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private static final Map<String, Method> scriptMap = new HashMap<>();
+    private static ExecutorService executor;
 
     public static void initialize() {
         final Reflections reflections = new Reflections("kinoko.script", Scanners.SubTypes);
@@ -41,10 +42,11 @@ public final class ScriptDispatcher {
                 scriptMap.put(scriptName, method);
             }
         }
+        executor = Executors.newVirtualThreadPerTaskExecutor();
     }
 
     public static void shutdown() {
-        scriptExecutor.shutdown();
+        executor.shutdown();
     }
 
     public static void startNpcScript(User user, FieldObject source, String scriptName, int speakerId) {
@@ -86,17 +88,20 @@ public final class ScriptDispatcher {
         // Resolve script handler
         final Method handler = scriptMap.get(scriptName);
         if (handler == null) {
+            user.write(MessagePacket.system("Not implemented, please let the GM know (" + scriptName + ")."));
             log.error("Could not resolve {} script with name : {}", scriptType, scriptName);
-            disposeScript(scriptType, user, source);
+            if (scriptType == ScriptType.ITEM || scriptType == ScriptType.PORTAL) {
+                user.dispose();
+            }
             return;
         }
         // Execute script handler
         final Field field = source.getField();
         final ScriptManagerImpl scriptManager = new ScriptManagerImpl(user, field, source, scriptName, speakerId);
-        scriptExecutor.submit(() -> {
+        executor.submit(() -> {
             try {
                 log.debug("Executing {} script : {}", scriptType.name(), scriptName);
-                ServerExecutor.lockExecutor(field);
+                user.lock();
                 handler.invoke(null, scriptManager);
             } catch (Exception e) {
                 if (!(e.getCause() instanceof ScriptTermination)) {

@@ -161,10 +161,12 @@ public final class DropPool extends FieldObjectPool<Drop> {
                         if (member.getCharacterId() == user.getCharacterId()) {
                             continue;
                         }
-                        if (member.getInventoryManager().addMoney(split)) {
-                            money -= split;
-                            member.write(WvsContext.statChanged(Stat.MONEY, member.getInventoryManager().getMoney(), false));
-                            member.write(MessagePacket.pickUpMoney(split, false));
+                        try (var lockedMember = member.acquire()) {
+                            if (member.getInventoryManager().addMoney(split)) {
+                                money -= split;
+                                member.write(WvsContext.statChanged(Stat.MONEY, member.getInventoryManager().getMoney(), false));
+                                member.write(MessagePacket.pickUpMoney(split, false));
+                            }
                         }
                     }
                 }

@@ -78,7 +78,9 @@ public final class OmokRoom extends MiniGameRoom {
                 setNextTurn(getUserIndex(other));
                 broadcastPacket(MiniRoomPacket.MiniGame.putStoneChecker(x, y, type));
                 if (omokGame.checkWin(x, y, type)) {
-                    gameSet(MiniGameResultType.NORMAL, user, other);
+                    try (var lockedOther = other.acquire()) {
+                        gameSet(MiniGameResultType.NORMAL, user, other);
+                    }
                 }
             }
             default -> {

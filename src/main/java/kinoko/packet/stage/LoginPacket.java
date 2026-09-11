@@ -10,12 +10,15 @@ import kinoko.server.rank.RankManager;
 import kinoko.world.user.Account;
 import kinoko.world.user.AvatarData;
 import kinoko.world.user.CharacterData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 public final class LoginPacket {
+    private static final Logger log = LoggerFactory.getLogger(LoginPacket.class);
     // CLogin::OnPacket ------------------------------------------------------------------------------------------------
 
     public static OutPacket connect(byte[] sendIv, byte[] recvIv) {

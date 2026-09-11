@@ -189,6 +189,16 @@ public final class CassandraAccountAccessor extends CassandraAccessor implements
         return updateResult.wasApplied();
     }
 
+    @Override
+    public void setLoggedStatus(Account account, boolean status) {
+
+    }
+
+    @Override
+    public boolean banAccount(int accountId, String reason) {
+        return false;
+    }
+
     public static void createTable(CqlSession session, String keyspace) {
         session.execute(
                 SchemaBuilder.createTable(keyspace, tableName)

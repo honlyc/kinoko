@@ -7,6 +7,7 @@ rewards:
   - [ 1322016, 1, 1, 0.000200 ] # Jacker
   - [ 1332011, 1, 1, 0.000200 ] # Bazlud
   - [ 1332031, 1, 1, 0.000200 ] # Dragon Toenail
+  - [ 1342003, 1, 1, 0.002500 ] # Majestic Katara
   - [ 1382019, 1, 1, 0.000200 ] # Hall Staff
   - [ 1402007, 1, 1, 0.000200 ] # Zard
   - [ 1412005, 1, 1, 0.000200 ] # Sabretooth
@@ -47,3 +48,4 @@ rewards:
   - [ 2388075, 1, 1, 0.020000 ] # Rock Spirit Card
   - [ 4004000, 1, 1, 0.001000 ] # Power Crystal Ore
   - [ 4020008, 1, 1, 0.002000 ] # Black Crystal Ore
+  - [ 4000538, 1, 1, 0.999999, 2288 ] # Spirit of Rock's Music Score : Say 'NO' to Plagiarism

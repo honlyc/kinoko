@@ -28,6 +28,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -90,8 +91,10 @@ public final class UserPool extends FieldObjectPool<User> {
 
         // Update party
         forEachPartyMember(user, (member) -> {
-            user.write(UserRemote.receiveHp(member));
-            member.write(UserRemote.receiveHp(user));
+            try (var lockedMember = member.acquire()) {
+                user.write(UserRemote.receiveHp(lockedMember.get()));
+                lockedMember.get().write(UserRemote.receiveHp(user));
+            }
         });
 
         // Create field objects for user
@@ -134,7 +137,8 @@ public final class UserPool extends FieldObjectPool<User> {
         });
         field.getTownPortalPool().forEach((townPortal) -> {
             final User owner = townPortal.getOwner();
-            if (owner.getCharacterId() == user.getCharacterId() || (owner.hasParty() && owner.getPartyId() == user.getPartyId())) {
+            if ((!owner.hasParty() && owner.getCharacterId() == user.getCharacterId()) ||
+                    (owner.hasParty() && owner.getPartyId() == user.getPartyId())) {
                 if (townPortal.getTownField() == field) {
                     final Optional<PortalInfo> portalPointResult = townPortal.getTownPortalPoint();
                     if (portalPointResult.isPresent()) {
@@ -142,7 +146,7 @@ public final class UserPool extends FieldObjectPool<User> {
                         user.write(FieldPacket.townPortalCreated(owner, portalPoint.getX(), portalPoint.getY(), false));
                     }
                 } else {
-                    user.write(FieldPacket.townPortalCreated(townPortal, false));
+                    user.write(FieldPacket.townPortalCreated(owner, townPortal.getX(), townPortal.getY(), false));
                 }
             }
         });
@@ -235,9 +239,9 @@ public final class UserPool extends FieldObjectPool<User> {
             }
             // Expire items
             if (now.isAfter(user.getNextCheckItemExpire())) {
+                final InventoryManager im = user.getInventoryManager();
                 user.setNextCheckItemExpire(now.plus(ServerConfig.ITEM_EXPIRE_INTERVAL, ChronoUnit.SECONDS));
                 boolean itemExpired = false;
-                final InventoryManager im = user.getInventoryManager();
                 for (InventoryType inventoryType : List.of(InventoryType.EQUIPPED, InventoryType.EQUIP, InventoryType.CONSUME, InventoryType.INSTALL, InventoryType.ETC)) {
                     final var iter = im.getInventoryByType(inventoryType).getItems().entrySet().iterator();
                     while (iter.hasNext()) {

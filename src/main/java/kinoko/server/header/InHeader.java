@@ -1,5 +1,8 @@
 package kinoko.server.header;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -145,7 +148,7 @@ public enum InHeader {
     UserFollowCharacterWithdraw(135),
     UserSelectPQReward(136),
     UserRequestPQReward(137),
-    SetPassenserResult(138),
+    SetPassengerResult(138),
     BroadcastMsg(139),
     GroupMessage(140),
     Whisper(141),
@@ -321,7 +324,9 @@ public enum InHeader {
     CheckDuplicatedIDInCS(311),
     // END_CHARACTERSALE(312),
     LogoutGiftSelect(313),
-    NO(314);
+    // Custom Packets
+    RegisterMigration(1000),
+    NO(2000);
 
     private static final List<InHeader> headers;
     private static final Set<InHeader> ignoreHeaders = Set.of(
@@ -365,10 +370,9 @@ public enum InHeader {
         return ignoreHeaders.contains(this);
     }
 
+    private static final Logger log = LogManager.getLogger(InHeader.class);
+
     public static InHeader getByValue(short op) {
-        if (op >= 0 && op < NO.getValue()) {
-            return headers.get(op);
-        }
-        return null;
+        return (op >= 0 && op < NO.getValue()) ? headers.get(op) : null;
     }
 }

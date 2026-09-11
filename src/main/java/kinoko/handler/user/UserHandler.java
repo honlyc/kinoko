@@ -57,6 +57,7 @@ import kinoko.world.skill.maker.MakerConstants;
 import kinoko.world.skill.maker.MakerResult;
 import kinoko.world.skill.maker.RecipeClass;
 import kinoko.world.user.Locker;
+import kinoko.world.user.PersonalInfo;
 import kinoko.world.user.User;
 import kinoko.world.user.data.*;
 import kinoko.world.user.effect.Effect;
@@ -68,6 +69,8 @@ import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
 import java.util.*;
+
+import static kinoko.world.skill.FameConstants.*;
 
 public final class UserHandler {
     private static final Logger log = LogManager.getLogger(UserHandler.class);
@@ -187,7 +190,7 @@ public final class UserHandler {
             user.write(GuildPacket.showGuildRanking(RankManager.getGuildRankings()));
             return;
         }
-        // Handle trunk / npc shop dialog
+        // Handle trunk / npc shop dialog, lock user
         if (user.hasDialog()) {
             log.error("Tried to select npc ID {}, while already in a dialog", npc.getTemplateId());
             return;
@@ -257,6 +260,11 @@ public final class UserHandler {
             return;
         }
         shopDialog.handlePacket(user, inPacket);
+    }
+
+    @Handler(InHeader.UserEntrustedShopRequest)
+    public static void handleUserEntrustedShopRequest(User user, InPacket inPacket) {
+        user.write(WvsContext.OnMerchantResult());
     }
 
     @Handler(InHeader.UserTrunkRequest)
@@ -335,6 +343,7 @@ public final class UserHandler {
     @Handler(InHeader.UserSortItemRequest)
     public static void handlerUserSortItemRequest(User user, InPacket inPacket) {
         inPacket.decodeInt(); // update_time
+        user.getAbManager().setTimestamp(3, System.currentTimeMillis(), 4);
         final InventoryType inventoryType = InventoryType.getByValue(inPacket.decodeByte()); // nType
         if (inventoryType == null || inventoryType == InventoryType.EQUIPPED) {
             user.dispose();
@@ -400,7 +409,6 @@ public final class UserHandler {
             return;
         }
         final ItemInfo itemInfo = itemInfoResult.get();
-
         if (newPos == 0) {
             // CDraggableItem::ThrowItem
             final DropEnterType dropEnterType = (itemInfo.isTradeBlock(item) || itemInfo.isAccountSharable()) ? DropEnterType.FADING_OUT : DropEnterType.CREATE;
@@ -527,12 +535,12 @@ public final class UserHandler {
         // Validate stat
         final CharacterStat cs = user.getCharacterStat();
         if (cs.getAp() < 1) {
-            log.error("Tried to add ap with {} remaining ap", cs.getAp());
+            log.warn("<User: {}> Tried to add ap with {} remaining ap", user.getCharacterName(), cs.getAp());
             user.dispose();
             return;
         }
         if (!cs.isValidAp(stat, 1)) {
-            log.error("Tried to add ap to stat {}", stat);
+            log.error("<User: {}> Tried to add ap to stat {}", user.getCharacterName(), stat);
             user.dispose();
             return;
         }
@@ -565,7 +573,7 @@ public final class UserHandler {
         final CharacterStat cs = user.getCharacterStat();
         final int requiredAp = stats.values().stream().mapToInt(Integer::intValue).sum();
         if (cs.getAp() < requiredAp) {
-            log.error("Tried to add {} ap with {} remaining ap", requiredAp, cs.getAp());
+            log.error("<User: {}> Tried to add {} ap with {} remaining ap", user.getCharacterName(), requiredAp, cs.getAp());
             user.dispose();
             return;
         }
@@ -573,7 +581,7 @@ public final class UserHandler {
             final Stat stat = entry.getKey();
             final int value = entry.getValue();
             if (!cs.isValidAp(stat, value)) {
-                log.error("Tried to add {} ap to stat {}", stat, value);
+                log.error("<User: {}> Tried to add {} ap to stat {}", user.getCharacterName(), stat, value);
                 user.dispose();
                 return;
             }
@@ -617,7 +625,6 @@ public final class UserHandler {
     public static void handleUserSkillUpRequest(User user, InPacket inPacket) {
         inPacket.decodeInt(); // update_time
         final int skillId = inPacket.decodeInt(); // nSkillID
-
         // Resolve skill info
         final Optional<SkillInfo> skillInfoResult = SkillProvider.getSkillInfoById(skillId);
         if (skillInfoResult.isEmpty()) {
@@ -631,7 +638,7 @@ public final class UserHandler {
         final SkillManager sm = user.getSkillManager();
         final Optional<SkillRecord> skillRecordResult = sm.getSkill(skillId);
         if (skillRecordResult.isEmpty()) {
-            log.error("Tried to add skill {} not owned by user", skillId);
+            log.error("<User: {}> Tried to add a skill {} not owned by user", user.getCharacterName(), skillId);
             user.dispose();
             return;
         }
@@ -651,13 +658,13 @@ public final class UserHandler {
         // Check skill level
         if (SkillConstants.isSkillNeedMasterLevel(skillId)) {
             if (skillRecord.getSkillLevel() >= skillRecord.getMasterLevel()) {
-                log.error("Tried to add skill {} at master level {}/{}", skillId, skillRecord.getSkillLevel(), skillRecord.getMasterLevel());
+                log.error("Tried to add a skill {} at master level {}/{}", skillId, skillRecord.getSkillLevel(), skillRecord.getMasterLevel());
                 user.dispose();
                 return;
             }
         } else {
             if (skillRecord.getSkillLevel() >= skillInfo.getMaxLevel()) {
-                log.error("Tried to add skill {} at max level {}/{}", skillId, skillRecord.getSkillLevel(), skillInfo.getMaxLevel());
+                log.error("Tried to add a skill {} at max level {}/{}", skillId, skillRecord.getSkillLevel(), skillInfo.getMaxLevel());
                 user.dispose();
                 return;
             }
@@ -667,7 +674,7 @@ public final class UserHandler {
         if (JobConstants.isBeginnerJob(skillRoot)) {
             // Check if valid beginner skill
             if (!SkillConstants.isBeginnerSpAddableSkill(skillId)) {
-                log.error("Tried to add an invalid beginner skill {}", skillId);
+                log.error("<User: {}> Tried to add an invalid beginner skill {}", user.getCharacterName(), skillId);
                 user.dispose();
                 return;
             }
@@ -685,25 +692,24 @@ public final class UserHandler {
             }
             // Check if sp can be added
             if (spentSp >= totalSp) {
-                log.error("Tried to add skill {} without having the required amount of sp", skillId);
+                log.warn("<User: {}> Tried to add skill {} without having the required amount of sp", user.getCharacterName(), skillId);
                 user.dispose();
                 return;
             }
         } else if (JobConstants.isExtendSpJob(skillRoot)) {
             final int jobLevel = JobConstants.getJobLevel(skillRoot);
             if (!user.getCharacterStat().getSp().removeSp(jobLevel, 1)) {
-                log.error("Tried to add skill {} without having the required amount of sp", skillId);
+                log.warn("<User: {}> Tried to add skill {} without having the required amount of sp", user.getCharacterName(), skillId);
                 user.dispose();
                 return;
             }
         } else {
             if (!user.getCharacterStat().getSp().removeNonExtendSp(1)) {
-                log.error("Tried to add skill {} without having the required amount of sp", skillId);
+                log.warn("<User: {}> Tried to add skill {} without having the required amount of sp", user.getCharacterName(), skillId);
                 user.dispose();
                 return;
             }
         }
-
         // Add skill point and update client
         skillRecord.setSkillLevel(skillRecord.getSkillLevel() + 1);
         user.write(WvsContext.statChanged(Stat.SP, JobConstants.isExtendSpJob(user.getJob()) ? user.getCharacterStat().getSp() : (short) user.getCharacterStat().getSp().getNonExtendSp(), false));
@@ -950,6 +956,58 @@ public final class UserHandler {
         user.getConfigManager().updateMacroSysData(macroSysData);
     }
 
+    @Handler(InHeader.UserUseGachaponRemoteRequest)
+    public static void handleUserUseGachaponRemoteRequest(User user, InPacket inPacket) {
+        int itemId = inPacket.decodeInt();
+    }
+
+    @Handler(InHeader.UserGivePopularityRequest)
+    public static void UserGivePopularityRequest(User user, InPacket inPacket) {
+        final int characterId = inPacket.decodeInt();
+        final int updatedFame = inPacket.decodeByte() == 0 ? -1 : 1;
+
+        final Optional<User> userResult = user.getField().getUserPool().getById(characterId);
+        if (userResult.isEmpty()) {
+            user.dispose();
+            return;
+        }
+
+        final User remoteUser = userResult.get();
+        if (remoteUser.getCharacterId() == user.getCharacterId()) {
+            user.write(WvsContext.UserGivePopularityError(1));
+            return;
+        }
+
+        if (user.getLevel() < 15) {
+            user.write(WvsContext.UserGivePopularityError(2));
+            return;
+        }
+
+        switch (user.canGivePop(remoteUser)) {
+            case CAN_GIVE -> {
+                if (Math.abs(remoteUser.getPop() + updatedFame) <= 999999) {
+                    remoteUser.addPop(updatedFame);
+                }
+                if (!user.getAccount().isGM()) {
+                    user.setLastFameTime(Instant.now());
+                    DatabaseManager.fameAccessor().newFame(user.getCharacterId(), remoteUser.getCharacterId());
+                }
+                user.write(WvsContext.OnGivePopularityResult(0, remoteUser.getCharacterName(), updatedFame == 1, remoteUser.getPop()));
+                remoteUser.write(WvsContext.OnGivePopularityResult(5, user.getCharacterName(), updatedFame == 1, 0));
+            }
+            case NOT_TODAY -> {
+                user.write(WvsContext.UserGivePopularityError(3));
+            }
+            case NOT_THIS_MONTH -> {
+                user.write(WvsContext.UserGivePopularityError(4));
+            }
+            default -> {
+                log.error("Received can give fame unhandled result {}", user.canGivePop(remoteUser));
+                return;
+            }
+        }
+    }
+
     @Handler(InHeader.UserItemMakeRequest)
     public static void handleUserItemMakeRequest(User user, InPacket inPacket) {
         // CUIItemMaker::RequestItemMake
@@ -1093,6 +1151,7 @@ public final class UserHandler {
                 user.write(WvsContext.statChanged(Stat.MONEY, im.getMoney(), true));
                 user.write(MakerPacket.normal(success, rewardItemId, rewardItemCount, lostItems, totalCost));
                 user.write(UserLocal.effect(Effect.itemMaker(success ? MakerResult.SUCCESS : MakerResult.DESTROYED)));
+                user.getField().broadcastPacket(UserRemote.effect(user, Effect.itemMaker(success ? MakerResult.SUCCESS : MakerResult.DESTROYED)));
             }
             case MONSTER_CRYSTAL -> {
                 final int itemId = inPacket.decodeInt(); // aRecipeSlot[0].pItem.p->nItemID
@@ -1448,10 +1507,12 @@ public final class UserHandler {
                             }
                             // Create personal shop
                             final PersonalShop personalShop = new PersonalShop(title);
-                            personalShop.addUser(0, user);
-                            field.getMiniRoomPool().addMiniRoom(personalShop);
-                            user.setDialog(personalShop);
-                            user.write(MiniRoomPacket.PlayerShop.enterResult(personalShop, user));
+                            try (var lockedRoom = personalShop.acquire()) {
+                                personalShop.addUser(0, user);
+                                field.getMiniRoomPool().addMiniRoom(personalShop);
+                                user.setDialog(personalShop);
+                                user.write(MiniRoomPacket.PlayerShop.enterResult(personalShop, user));
+                            }
                         } else {
                             if (itemId / 10000 != 503 || !user.getInventoryManager().hasItem(itemId, 1)) {
                                 log.error("Tried to create entrusted shop without the required item");
@@ -1475,19 +1536,23 @@ public final class UserHandler {
                     user.write(BroadcastPacket.alert("This request has failed due to an unknown error."));
                     return;
                 }
-                final Optional<User> targetResult = field.getUserPool().getById(targetId);
-                if (targetResult.isEmpty()) {
-                    user.write(MiniRoomPacket.inviteResult(MiniRoomInviteType.NoCharacter, null)); // Unable to find the character.
-                    tradingRoom.cancelTrade(user, MiniRoomLeaveType.UserRequest);
-                    return;
+                try (var lockedRoom = tradingRoom.acquire()) {
+                    final Optional<User> targetResult = field.getUserPool().getById(targetId);
+                    if (targetResult.isEmpty()) {
+                        user.write(MiniRoomPacket.inviteResult(MiniRoomInviteType.NoCharacter, null)); // Unable to find the character.
+                        tradingRoom.cancelTrade(user, MiniRoomLeaveType.UserRequest);
+                        return;
+                    }
+                    try (var lockedTarget = targetResult.get().acquire()) {
+                        final User target = lockedTarget.get();
+                        if (target.getDialog() != null) {
+                            user.write(MiniRoomPacket.inviteResult(MiniRoomInviteType.CannotInvite, target.getCharacterName())); // '%s' is doing something else right now.
+                            tradingRoom.cancelTrade(user, MiniRoomLeaveType.UserRequest);
+                            return;
+                        }
+                        target.write(MiniRoomPacket.inviteStatic(MiniRoomType.TradingRoom, user.getCharacterName(), tradingRoom.getId()));
+                    }
                 }
-                final User target = targetResult.get();
-                if (target.getDialog() != null) {
-                    user.write(MiniRoomPacket.inviteResult(MiniRoomInviteType.CannotInvite, target.getCharacterName())); // '%s' is doing something else right now.
-                    tradingRoom.cancelTrade(user, MiniRoomLeaveType.UserRequest);
-                    return;
-                }
-                target.write(MiniRoomPacket.inviteStatic(MiniRoomType.TradingRoom, user.getCharacterName(), tradingRoom.getId()));
             }
             case MRP_InviteResult -> {
                 // CMiniRoomBaseDlg::SendInviteResult
@@ -1526,46 +1591,48 @@ public final class UserHandler {
                     user.write(MiniRoomPacket.enterResult(EnterResultType.NoRoom)); // The room is already closed.
                     return;
                 }
-                final MiniRoom miniRoom = miniRoomResult.get();
-                // Check password
-                if (!miniRoom.checkPassword(password)) {
-                    user.write(MiniRoomPacket.enterResult(EnterResultType.InvalidPassword)); // The password is incorrect.
-                    return;
-                }
-                // Handle for each mini room type
-                if (miniRoom instanceof MiniGameRoom miniGameRoom) {
-                    if (miniGameRoom.getUser(1) != null) {
-                        user.write(MiniRoomPacket.enterResult(EnterResultType.Full)); // You can't enter the room due to full capacity.
+                try (var lockedRoom = miniRoomResult.get().acquire()) {
+                    final MiniRoom miniRoom = lockedRoom.get();
+                    // Check password
+                    if (!miniRoom.checkPassword(password)) {
+                        user.write(MiniRoomPacket.enterResult(EnterResultType.InvalidPassword)); // The password is incorrect.
                         return;
                     }
-                    miniGameRoom.broadcastPacket(MiniRoomPacket.MiniGame.enter(1, user, miniGameRoom.getType()));
-                    miniGameRoom.addUser(1, user);
-                    miniGameRoom.updateBalloon();
-                    user.setDialog(miniGameRoom);
-                    user.write(MiniRoomPacket.MiniGame.enterResult(miniGameRoom, user));
-                } else if (miniRoom instanceof TradingRoom tradingRoom) {
-                    if (tradingRoom.getUser(1) != null) {
-                        user.write(MiniRoomPacket.enterResult(EnterResultType.Full)); // You can't enter the room due to full capacity.
-                        return;
+                    // Handle for each mini room type
+                    if (miniRoom instanceof MiniGameRoom miniGameRoom) {
+                        if (miniGameRoom.getUser(1) != null) {
+                            user.write(MiniRoomPacket.enterResult(EnterResultType.Full)); // You can't enter the room due to full capacity.
+                            return;
+                        }
+                        miniGameRoom.broadcastPacket(MiniRoomPacket.MiniGame.enter(1, user, miniGameRoom.getType()));
+                        miniGameRoom.addUser(1, user);
+                        miniGameRoom.updateBalloon();
+                        user.setDialog(miniGameRoom);
+                        user.write(MiniRoomPacket.MiniGame.enterResult(miniGameRoom, user));
+                    } else if (miniRoom instanceof TradingRoom tradingRoom) {
+                        if (tradingRoom.getUser(1) != null) {
+                            user.write(MiniRoomPacket.enterResult(EnterResultType.Full)); // You can't enter the room due to full capacity.
+                            return;
+                        }
+                        tradingRoom.broadcastPacket(MiniRoomPacket.enterBase(1, user));
+                        tradingRoom.addUser(1, user);
+                        user.setDialog(tradingRoom);
+                        user.write(MiniRoomPacket.enterResult(tradingRoom, user));
+                    } else if (miniRoom instanceof PersonalShop personalShop) {
+                        final int userIndex = personalShop.getOpenUserIndex();
+                        if (!personalShop.isOpen() || userIndex < 0) {
+                            user.write(MiniRoomPacket.enterResult(EnterResultType.Full)); // You can't enter the room due to full capacity.
+                            return;
+                        }
+                        personalShop.broadcastPacket(MiniRoomPacket.enterBase(userIndex, user));
+                        personalShop.addUser(userIndex, user);
+                        personalShop.updateBalloon();
+                        user.setDialog(personalShop);
+                        user.write(MiniRoomPacket.PlayerShop.enterResult(personalShop, user));
+                    } else {
+                        log.error("Tried to enter mini room with unhandled type : {}", miniRoom.getType());
+                        user.write(BroadcastPacket.alert("This request has failed due to an unknown error."));
                     }
-                    tradingRoom.broadcastPacket(MiniRoomPacket.enterBase(1, user));
-                    tradingRoom.addUser(1, user);
-                    user.setDialog(tradingRoom);
-                    user.write(MiniRoomPacket.enterResult(tradingRoom, user));
-                } else if (miniRoom instanceof PersonalShop personalShop) {
-                    final int userIndex = personalShop.getOpenUserIndex();
-                    if (!personalShop.isOpen() || userIndex < 0) {
-                        user.write(MiniRoomPacket.enterResult(EnterResultType.Full)); // You can't enter the room due to full capacity.
-                        return;
-                    }
-                    personalShop.broadcastPacket(MiniRoomPacket.enterBase(userIndex, user));
-                    personalShop.addUser(userIndex, user);
-                    personalShop.updateBalloon();
-                    user.setDialog(personalShop);
-                    user.write(MiniRoomPacket.PlayerShop.enterResult(personalShop, user));
-                } else {
-                    log.error("Tried to enter mini room with unhandled type : {}", miniRoom.getType());
-                    user.write(BroadcastPacket.alert("This request has failed due to an unknown error."));
                 }
             }
             case MRP_Chat -> {
@@ -1576,24 +1643,28 @@ public final class UserHandler {
                     log.error("Received {} without a mini room", mrp);
                     return;
                 }
-                final int userIndex = miniRoom.getUserIndex(user);
-                if (userIndex < 0) {
-                    log.error("Received {} with user index", userIndex);
-                    return;
+                try (var lockedRoom = miniRoom.acquire()) {
+                    final int userIndex = miniRoom.getUserIndex(user);
+                    if (userIndex < 0) {
+                        log.error("Received {} with user index", userIndex);
+                        return;
+                    }
+                    miniRoom.broadcastPacket(MiniRoomPacket.chat(userIndex, user.getCharacterName(), message));
                 }
-                miniRoom.broadcastPacket(MiniRoomPacket.chat(userIndex, user.getCharacterName(), message));
             }
             case MRP_Leave -> {
                 if (!(user.getDialog() instanceof MiniRoom miniRoom)) {
                     log.error("Received {} without a mini room", mrp);
                     return;
                 }
-                final int userIndex = miniRoom.getUserIndex(user);
-                if (userIndex < 0) {
-                    log.error("Received {} with user index", userIndex);
-                    return;
+                try (var lockedRoom = miniRoom.acquire()) {
+                    final int userIndex = miniRoom.getUserIndex(user);
+                    if (userIndex < 0) {
+                        log.error("Received {} with user index", userIndex);
+                        return;
+                    }
+                    miniRoom.leaveUnsafe(user);
                 }
-                miniRoom.leave(user);
             }
             case MRP_Balloon -> {
                 final boolean open = inPacket.decodeBoolean();
@@ -1655,51 +1726,54 @@ public final class UserHandler {
                 final Optional<Tuple<Commodity, List<Commodity>>> packageResult = CashShop.getCashPackage(gift.getCommodityId());
                 final int commodityCount = packageResult.map(tuple -> tuple.getRight().size()).orElse(1);
                 // Receive gift
-                final Locker locker = user.getAccount().getLocker();
-                if (locker.getRemaining() < commodityCount) {
-                    user.write(BroadcastPacket.alert("Could not receive gift as the locker is full."));
-                    return;
-                }
-                // Create CashItemInfo(s)
-                final List<CashItemInfo> cashItemInfos = new ArrayList<>();
-                if (packageResult.isPresent()) {
-                    // Cash package
-                    for (Commodity commodity : packageResult.get().getRight()) {
-                        final Optional<CashItemInfo> cashItemInfoResult = commodity.createCashItemInfo(gift.getGiftSn(), user.getAccountId(), user.getCharacterId(), gift.getSenderName());
+                try (var lockedAccount = user.getAccount().acquire()) {
+                    final Locker locker = lockedAccount.get().getLocker();
+                    if (locker.getRemaining() < commodityCount) {
+                        user.write(BroadcastPacket.alert("Could not receive gift as the locker is full."));
+                        return;
+                    }
+                    // Create CashItemInfo(s)
+                    final List<CashItemInfo> cashItemInfos = new ArrayList<>();
+                    if (packageResult.isPresent()) {
+                        // Cash package
+                        for (Commodity commodity : packageResult.get().getRight()) {
+                            final Optional<CashItemInfo> cashItemInfoResult = commodity.createCashItemInfo(gift.getGiftSn(), user.getAccountId(), user.getCharacterId(), gift.getSenderName());
+                            if (cashItemInfoResult.isEmpty()) {
+                                log.error("Failed to create cash item info for gift commodity ID : {}", commodity.getCommodityId());
+                                user.write(CashShopPacket.fail(CashItemResultType.Gift_Failed, CashItemFailReason.Unknown)); // Due to an unknown error, the request for Cash Shop has failed.
+                                return;
+                            }
+                            cashItemInfos.add(cashItemInfoResult.get());
+                        }
+                    } else {
+                        // Normal gift
+                        final Optional<CashItemInfo> cashItemInfoResult = commodityResult.get().createCashItemInfo(gift.getGiftSn(), user.getAccountId(), user.getCharacterId(), gift.getSenderName());
                         if (cashItemInfoResult.isEmpty()) {
-                            log.error("Failed to create cash item info for gift commodity ID : {}", commodity.getCommodityId());
+                            log.error("Failed to create cash item info for gift commodity ID : {}", gift.getCommodityId());
                             user.write(CashShopPacket.fail(CashItemResultType.Gift_Failed, CashItemFailReason.Unknown)); // Due to an unknown error, the request for Cash Shop has failed.
                             return;
                         }
-                        cashItemInfos.add(cashItemInfoResult.get());
+                        final CashItemInfo cashItemInfo = cashItemInfoResult.get();
+                        // Create RingData if pairItemSn was set
+                        if (gift.getPairItemSn() != 0) {
+                            final RingData ringData = new RingData();
+                            ringData.setPairCharacterId(gift.getSenderId());
+                            ringData.setPairCharacterName(gift.getSenderName());
+                            ringData.setPairItemSn(gift.getPairItemSn());
+                            cashItemInfo.getItem().setRingData(ringData);
+                        }
+                        cashItemInfos.add(cashItemInfo);
                     }
-                } else {
-                    // Normal gift
-                    final Optional<CashItemInfo> cashItemInfoResult = commodityResult.get().createCashItemInfo(gift.getGiftSn(), user.getAccountId(), user.getCharacterId(), gift.getSenderName());
-                    if (cashItemInfoResult.isEmpty()) {
-                        log.error("Failed to create cash item info for gift commodity ID : {}", gift.getCommodityId());
+                    // Delete gift from DB and add to locker
+                    if (!DatabaseManager.giftAccessor().deleteGift(gift)) {
+                        log.error("Failed to delete gift with sn : {}", gift.getGiftSn());
                         user.write(CashShopPacket.fail(CashItemResultType.Gift_Failed, CashItemFailReason.Unknown)); // Due to an unknown error, the request for Cash Shop has failed.
                         return;
                     }
-                    final CashItemInfo cashItemInfo = cashItemInfoResult.get();
-                    // Create RingData if pairItemSn was set
-                    if (gift.getPairItemSn() != 0) {
-                        final RingData ringData = new RingData();
-                        ringData.setPairCharacterId(gift.getSenderId());
-                        ringData.setPairCharacterName(gift.getSenderName());
-                        ringData.setPairItemSn(gift.getPairItemSn());
-                        cashItemInfo.getItem().setRingData(ringData);
+                    for (CashItemInfo cashItemInfo : cashItemInfos) {
+                        locker.addCashItem(cashItemInfo);
                     }
-                    cashItemInfos.add(cashItemInfo);
-                }
-                // Delete gift from DB and add to locker
-                if (!DatabaseManager.giftAccessor().deleteGift(gift)) {
-                    log.error("Failed to delete gift with sn : {}", gift.getGiftSn());
-                    user.write(CashShopPacket.fail(CashItemResultType.Gift_Failed, CashItemFailReason.Unknown)); // Due to an unknown error, the request for Cash Shop has failed.
-                    return;
-                }
-                for (CashItemInfo cashItemInfo : cashItemInfos) {
-                    locker.addCashItem(cashItemInfo);
+                    user.write(CashShopPacket.loadLockerDone(lockedAccount.get()));
                 }
                 user.write(CashShopPacket.loadLockerDone(user.getAccount()));
 
@@ -1782,8 +1856,15 @@ public final class UserHandler {
         if (townPortal.getTownField() == user.getField()) {
             user.warp(townPortal.getField(), townPortal.getX(), townPortal.getY(), townPortalId, false, false);
         } else {
-            final PortalInfo portalInfo = townPortal.getTownPortalPoint().orElse(PortalInfo.EMPTY);
-            user.warp(townPortal.getTownField(), portalInfo.getX(), portalInfo.getY(), townPortalId, false, false);
+            final int x, y;
+            final Optional<PortalInfo> portalPointResult = townPortal.getTownPortalPoint();
+            if (portalPointResult.isPresent()) {
+                x = portalPointResult.get().getX();
+                y = portalPointResult.get().getY();
+            } else {
+                x = y = 0;
+            }
+            user.warp(townPortal.getTownField(), x, y, townPortalId, false, false);
         }
     }
 
@@ -1859,6 +1940,53 @@ public final class UserHandler {
         inPacket.decodeInt(); // nGameOpt_OpBoardIndex
     }
 
+    @Handler(InHeader.AccountMoreInfo)
+    public static void handleAccountMoreInfo(User user, InPacket inPacket) {
+        final byte type = inPacket.decodeByte();
+        if (type != 1) {
+            final PersonalInfo pi = PersonalInfo.decode(inPacket);
+            user.getCharacterData().setPersonalInfo(pi);
+            user.write(WvsContext.accountMoreInfoResult(true));
+        } else {
+            user.write(WvsContext.accountMoreInfoResult(
+                    user.getPersonalInfo().getLocation(),
+                    user.getPersonalInfo().getTodo(),
+                    user.getPersonalInfo().getBirthday(),
+                    user.getPersonalInfo().getFound())
+            );
+        }
+    }
+
+    @Handler(InHeader.FindFriend)
+    public static void findFriend(User user, InPacket inPacket) {
+        final byte type = inPacket.decodeByte();
+        final FindFriendType findFriendType = FindFriendType.getByValue(type);
+        switch (findFriendType) {
+            case FindMoreFriends -> {
+                final List<User> users = new ArrayList<>();
+                for (User usr : user.getConnectedServer().getConnectedUsers()) {
+                    if (user.getCharacterId() != user.getCharacterId()) {
+                        users.add(usr);
+                    }
+                }
+                user.write(WvsContext.findFriendResult(users));
+            }
+            case FindFriend -> {
+                if(user.getPersonalInfo().getBirthday() == 0 && user.getPersonalInfo().getTodo() == 0 && user.getPersonalInfo().getLocation() == 0 && user.getPersonalInfo().getFound() == 0) {
+                    user.write(WvsContext.findFriendResult(0));
+                } else {
+                    user.write(WvsContext.findFriendResult(1));
+                }
+            }
+            case null -> {
+                log.error("Received unknown type {} for findFriendType", type);
+            }
+            default -> {
+                log.error("Unhandled func key mapped type : {}", findFriendType);
+            }
+        }
+    }
+
     @Handler(InHeader.DragonMove)
     public static void handleDragonMove(User user, InPacket inPacket) {
         final MovePath movePath = MovePath.decode(inPacket);
@@ -1886,5 +2014,41 @@ public final class UserHandler {
     public static void handleUpdateScreenSetting(User user, InPacket inPacket) {
         inPacket.decodeByte(); // bSysOpt_LargeScreen
         inPacket.decodeByte(); // bSysOpt_WindowedMode
+    }
+
+    @Handler(InHeader.UserFollowCharacterRequest)
+    public static void handleUserFollowCharacterRequest(User user, InPacket inPacket) {
+        final Field field = user.getField();
+        final int driverChrId = inPacket.decodeInt();
+        final short unk = inPacket.decodeShort();
+
+        Optional<User> userResult = user.getField().getUserPool().getById(driverChrId);
+        if (userResult.isEmpty()) {
+            user.dispose();
+            return;
+        }
+        final User remoteUser = userResult.get();
+        remoteUser.write(WvsContext.SetPassengerRequest(user.getCharacterId()));
+    }
+
+    @Handler(InHeader.SetPassengerResult)
+    public static void handleSetPassengerResult(User user, InPacket inPacket) {
+        final Field field = user.getField();
+        final int reqChrId = inPacket.decodeInt();
+        boolean accepted = inPacket.decodeByte() != 0;
+
+        Optional<User> userResult = user.getField().getUserPool().getById(reqChrId);
+        if (userResult.isEmpty()) {
+            user.dispose();
+            return;
+        }
+        final User remoteUser = userResult.get();
+
+        if(!accepted) {
+            int errorType = inPacket.decodeInt();
+            log.warn("Error sent in SetPassengerResult: {}", errorType);
+        } else {
+            remoteUser.write(WvsContext.followCharacter(user.getCharacterId(), false, 0, 0));
+        }
     }
 }

@@ -144,7 +144,7 @@ public enum OutHeader {
     ShowSlotMessage(131),
     WildHunterInfo(132),
     AccountMoreInfo(133),
-    FindFirend(134),
+    FindFriend(134),
     StageChange(135),
     DragonBallBox(136),
     AskUserWhetherUsePamsSong(137),
@@ -528,7 +528,9 @@ public enum OutHeader {
     ITCNormalItemResult(412),
 
     LogoutGift(432),
-    NO(433);
+    // Custom Packets
+    RegisterMigrationResult(1000),
+    NO(2000);
 
 
     private static final List<OutHeader> headers;

@@ -97,6 +97,16 @@ public final class CassandraConnector implements DatabaseConnector {
     }
 
     @Override
+    public FameAccessor getFameAccessor() {
+        return null;
+    }
+
+    @Override
+    public ActiveMachineAccessor getActiveMachineAccessor() {
+        return null;
+    }
+
+    @Override
     public void initialize() {
 // Create Config
         final DriverConfigLoader configLoader = DriverConfigLoader.programmaticBuilder()

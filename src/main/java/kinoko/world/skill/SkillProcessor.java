@@ -20,6 +20,7 @@ import kinoko.world.item.Item;
 import kinoko.world.job.Job;
 import kinoko.world.job.cygnus.*;
 import kinoko.world.job.explorer.*;
+import kinoko.world.job.gm.Admin;
 import kinoko.world.job.legend.Aran;
 import kinoko.world.job.legend.Evan;
 import kinoko.world.job.resistance.BattleMage;
@@ -93,19 +94,16 @@ public abstract class SkillProcessor {
 
         final int skillRoot = SkillConstants.getSkillRoot(attack.skillId);
         switch (Job.getById(skillRoot)) {
-            case WARRIOR, FIGHTER, CRUSADER, HERO, PAGE, WHITE_KNIGHT, PALADIN, SPEARMAN, DRAGON_KNIGHT,
-                 DARK_KNIGHT -> {
+            case WARRIOR, FIGHTER, CRUSADER, HERO, PAGE, WHITE_KNIGHT, PALADIN, SPEARMAN, DRAGON_KNIGHT, DARK_KNIGHT -> {
                 Warrior.handleAttack(user, mob, attack, delay);
             }
-            case MAGICIAN, WIZARD_FP, MAGE_FP, ARCH_MAGE_FP, WIZARD_IL, MAGE_IL, ARCH_MAGE_IL, CLERIC, PRIEST,
-                 BISHOP -> {
+            case MAGICIAN, WIZARD_FP, MAGE_FP, ARCH_MAGE_FP, WIZARD_IL, MAGE_IL, ARCH_MAGE_IL, CLERIC, PRIEST, BISHOP -> {
                 Magician.handleAttack(user, mob, attack, delay);
             }
             case ARCHER, HUNTER, RANGER, BOWMASTER, CROSSBOWMAN, SNIPER, MARKSMAN -> {
                 Bowman.handleAttack(user, mob, attack, delay);
             }
-            case ROGUE, ASSASSIN, HERMIT, NIGHT_LORD, BANDIT, CHIEF_BANDIT, SHADOWER, BLADE_RECRUIT, BLADE_ACOLYTE,
-                 BLADE_SPECIALIST, BLADE_LORD, BLADE_MASTER -> {
+            case ROGUE, ASSASSIN, HERMIT, NIGHT_LORD, BANDIT, CHIEF_BANDIT, SHADOWER, BLADE_RECRUIT, BLADE_ACOLYTE, BLADE_SPECIALIST, BLADE_LORD, BLADE_MASTER -> {
                 Thief.handleAttack(user, mob, attack, delay);
             }
             case PIRATE, BRAWLER, MARAUDER, BUCCANEER, GUNSLINGER, OUTLAW, CORSAIR -> {
@@ -197,9 +195,11 @@ public abstract class SkillProcessor {
             case Citizen.HEROS_ECHO:
                 user.setTemporaryStat(CharacterTemporaryStat.MaxLevelBuff, TemporaryStatOption.of(si.getValue(SkillStat.x, slv), skillId, si.getDuration(slv)));
                 skill.forEachAffectedUser(field, (other) -> {
-                    other.setTemporaryStat(CharacterTemporaryStat.MaxLevelBuff, TemporaryStatOption.of(si.getValue(SkillStat.x, slv), skillId, si.getDuration(slv)));
-                    other.write(UserLocal.effect(Effect.skillAffected(skill.skillId, skill.slv)));
-                    field.broadcastPacket(UserRemote.effect(other, Effect.skillAffected(skill.skillId, skill.slv)), other);
+                    try (var lockedOther = other.acquire()) {
+                        other.setTemporaryStat(CharacterTemporaryStat.MaxLevelBuff, TemporaryStatOption.of(si.getValue(SkillStat.x, slv), skillId, si.getDuration(slv)));
+                        other.write(UserLocal.effect(Effect.skillAffected(skill.skillId, skill.slv)));
+                        field.broadcastPacket(UserRemote.effect(other, Effect.skillAffected(skill.skillId, skill.slv)), other);
+                    }
                 });
                 return;
 
@@ -463,19 +463,16 @@ public abstract class SkillProcessor {
             case CITIZEN -> {
                 Citizen.handleSkill(user, skill);
             }
-            case WARRIOR, FIGHTER, CRUSADER, HERO, PAGE, WHITE_KNIGHT, PALADIN, SPEARMAN, DRAGON_KNIGHT,
-                 DARK_KNIGHT -> {
+            case WARRIOR, FIGHTER, CRUSADER, HERO, PAGE, WHITE_KNIGHT, PALADIN, SPEARMAN, DRAGON_KNIGHT, DARK_KNIGHT -> {
                 Warrior.handleSkill(user, skill);
             }
-            case MAGICIAN, WIZARD_FP, MAGE_FP, ARCH_MAGE_FP, WIZARD_IL, MAGE_IL, ARCH_MAGE_IL, CLERIC, PRIEST,
-                 BISHOP -> {
+            case MAGICIAN, WIZARD_FP, MAGE_FP, ARCH_MAGE_FP, WIZARD_IL, MAGE_IL, ARCH_MAGE_IL, CLERIC, PRIEST, BISHOP -> {
                 Magician.handleSkill(user, skill);
             }
             case ARCHER, HUNTER, RANGER, BOWMASTER, CROSSBOWMAN, SNIPER, MARKSMAN -> {
                 Bowman.handleSkill(user, skill);
             }
-            case ROGUE, ASSASSIN, HERMIT, NIGHT_LORD, BANDIT, CHIEF_BANDIT, SHADOWER, BLADE_RECRUIT, BLADE_ACOLYTE,
-                 BLADE_SPECIALIST, BLADE_LORD, BLADE_MASTER -> {
+            case ROGUE, ASSASSIN, HERMIT, NIGHT_LORD, BANDIT, CHIEF_BANDIT, SHADOWER, BLADE_RECRUIT, BLADE_ACOLYTE, BLADE_SPECIALIST, BLADE_LORD, BLADE_MASTER -> {
                 Thief.handleSkill(user, skill);
             }
             case PIRATE, BRAWLER, MARAUDER, BUCCANEER, GUNSLINGER, OUTLAW, CORSAIR -> {
@@ -510,6 +507,9 @@ public abstract class SkillProcessor {
             }
             case MECHANIC_1, MECHANIC_2, MECHANIC_3, MECHANIC_4 -> {
                 Mechanic.handleSkill(user, skill);
+            }
+            case GM, SUPER_GM -> {
+                Admin.handleSkill(user, skill);
             }
             default -> {
                 log.error("Unhandled skill {}", skill.skillId);
@@ -626,14 +626,15 @@ public abstract class SkillProcessor {
             }
             // Apply aura buff to party members
             user.getField().getUserPool().forEachPartyMember(user, (member) -> {
-                if (rect.isInsideRect(member.getX(), member.getY())) {
-                    if (!member.getSecondaryStat().hasOption(cts)) {
-                        member.setTemporaryStat(cts, TemporaryStatOption.of(x, skillId, 0));
-                    }
-                } else if (member.getSecondaryStat().hasOption(cts)){
-                    final TemporaryStatOption memberOption = member.getSecondaryStat().getOption(CharacterTemporaryStat.Aura);
-                    if (memberOption.rOption != option.rOption) {
-                        member.resetTemporaryStat(Set.of(cts));
+                try (var lockedMember = member.acquire()) {
+                    if (rect.isInsideRect(member.getX(), member.getY())) {
+                        if (!member.getSecondaryStat().hasOption(cts)) {
+                            member.setTemporaryStat(cts, TemporaryStatOption.of(x, skillId, 0));
+                        }
+                    } else {
+                        if (member.getSecondaryStat().hasOption(cts)) {
+                            member.resetTemporaryStat(Set.of(cts));
+                        }
                     }
                 }
             });

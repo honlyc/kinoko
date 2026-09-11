@@ -11,8 +11,7 @@ import kinoko.world.job.JobConstants;
 import kinoko.world.quest.QuestRecordType;
 import kinoko.world.user.User;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -106,7 +105,7 @@ public final class Edelstein extends ScriptHandler {
         // Wonny (2159305)
         //   Black Wing Territory : Edelstein (310000000)
         if (sm.hasQuestStarted(23938)) {
-            final ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+            final LocalDateTime now = LocalDateTime.now();
             if (now.getHour() == 22 && !sm.hasQRValue(QuestRecordType.EdelsteinWonny10PM, "1")) {
                 sm.setQRValue(QuestRecordType.EdelsteinWonny10PM, "1");
                 sm.sayNext("What are you looking at? I'm not standing here because I miss #p2154004#. I just... want to make sure that no thieves get in. Yeah.");
@@ -172,7 +171,7 @@ public final class Edelstein extends ScriptHandler {
         //   in03 (1090, 587)
         sm.playPortalSE();
         if (sm.hasQuestStarted(23940) && !sm.hasQRValue(QuestRecordType.EdelsteinFabioFirebombs, "1")) {
-            final ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+            final LocalDateTime now = LocalDateTime.now();
             if (now.getHour() == 18) {
                 sm.warpInstance(931010030, "out00", 310000000, 10 * 60);
                 return;
@@ -275,11 +274,11 @@ public final class Edelstein extends ScriptHandler {
         }
         if (sm.hasQuestStarted(23043) || sm.hasQuestStarted(23044) || sm.hasQuestStarted(23045)) {
             sm.message("Find the missing Job Instructor!");
-            if (JobConstants.isBattleMageJob(sm.getJob())) {
+            if (JobConstants.isBattleMageJob(sm.getUser().getJob())) {
                 sm.warpInstance(List.of(931000300, 931000310, 931000320), "sp", 310050100, 60 * 15);
-            } else if (JobConstants.isWildHunterJob(sm.getJob())) {
+            } else if (JobConstants.isWildHunterJob(sm.getUser().getJob())) {
                 sm.warpInstance(List.of(931000301, 931000311, 931000321), "sp", 310050100, 60 * 15);
-            } else if (JobConstants.isMechanicJob(sm.getJob())) {
+            } else if (JobConstants.isMechanicJob(sm.getUser().getJob())) {
                 sm.warpInstance(List.of(931000302, 931000312, 931000322), "sp", 310050100, 60 * 15);
             }
         }

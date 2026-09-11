@@ -9,6 +9,7 @@ rewards:
   - [ 1060061, 1, 1, 0.000100 ] # Red Legolier Pants
   - [ 1072086, 1, 1, 0.000100 ] # Green Lappy Boots
   - [ 1072291, 1, 1, 0.000100 ] # Brown Wooden Krag
+  - [ 1342005, 1, 1, 0.002500 ] # Heavenly Katara
   - [ 1412000, 1, 1, 0.000100 ] # Two-Handed Axe
   - [ 1412006, 1, 1, 0.000100 ] # Blue Axe
   - [ 1422001, 1, 1, 0.000100 ] # Mithril Maul
@@ -24,3 +25,4 @@ rewards:
   - [ 4010006, 1, 1, 0.002000 ] # Gold Ore
   - [ 4020002, 1, 1, 0.002000 ] # AquaMarine Ore
   - [ 4031262, 1, 1, 0.040000, 3081 ] # Flower Fish's DNA Sample
+  - [ 2044601, 1, 1, 0.0003 ]

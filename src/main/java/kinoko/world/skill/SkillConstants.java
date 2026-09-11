@@ -6,6 +6,7 @@ import kinoko.world.job.Job;
 import kinoko.world.job.JobConstants;
 import kinoko.world.job.cygnus.*;
 import kinoko.world.job.explorer.*;
+import kinoko.world.job.gm.Admin;
 import kinoko.world.job.legend.Aran;
 import kinoko.world.job.legend.Evan;
 import kinoko.world.job.resistance.BattleMage;
@@ -271,7 +272,7 @@ public final class SkillConstants {
     }
 
     public static boolean isPartySkill(int skillId) {
-        if (skillId == Magician.HEAL) {
+        if (skillId == Magician.HEAL || skillId == Admin.HEAL_DISPEL) {
             // CUserLocal::DoActiveSkill_Heal
             return true;
         }

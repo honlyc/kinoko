@@ -48,7 +48,7 @@ public final class PartyHandler {
             }
             case InviteParty -> {
                 // CField::SendJoinPartyMsg
-                if (user.hasParty() && !user.isPartyBoss()) {
+                if (user.hasParty() && !user.isPartyLeader()) {
                     user.write(PartyPacket.serverMsg("You are not the leader of the party."));
                     return;
                 }
@@ -57,7 +57,7 @@ public final class PartyHandler {
             }
             case KickParty -> {
                 // CField::SendKickPartyMsg
-                if (!user.isPartyBoss()) {
+                if (!user.isPartyLeader()) {
                     user.write(PartyPacket.serverMsg("You are not the leader of the party."));
                     return;
                 }
@@ -66,7 +66,7 @@ public final class PartyHandler {
             }
             case ChangePartyBoss -> {
                 // CField::SendChangePartyBossMsg
-                if (!user.isPartyBoss()) {
+                if (!user.isPartyLeader()) {
                     user.write(PartyPacket.serverMsg("You are not the leader of the party."));
                     return;
                 }
@@ -88,7 +88,7 @@ public final class PartyHandler {
         final PartyResultType resultType = PartyResultType.getByValue(type);
         switch (resultType) {
             case InviteParty_Sent, InviteParty_BlockedUser, InviteParty_AlreadyInvited,
-                 InviteParty_AlreadyInvitedByInviter, InviteParty_Rejected -> {
+                    InviteParty_AlreadyInvitedByInviter, InviteParty_Rejected -> {
                 final int inviterId = inPacket.decodeInt();
                 final String message = switch (resultType) {
                     // These messages are from the client string pool, but are not used (except for InviteParty_Sent)

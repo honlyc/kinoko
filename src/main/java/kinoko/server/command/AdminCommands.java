@@ -3,6 +3,7 @@ package kinoko.server.command;
 import kinoko.packet.user.DragonPacket;
 import kinoko.packet.user.UserLocal;
 import kinoko.packet.user.UserRemote;
+import kinoko.packet.world.BroadcastPacket;
 import kinoko.packet.world.MessagePacket;
 import kinoko.packet.world.WvsContext;
 import kinoko.provider.*;
@@ -16,6 +17,7 @@ import kinoko.provider.mob.MobTemplate;
 import kinoko.provider.npc.NpcTemplate;
 import kinoko.provider.quest.QuestInfo;
 import kinoko.provider.reactor.ReactorTemplate;
+import kinoko.provider.reward.Reward;
 import kinoko.provider.skill.SkillInfo;
 import kinoko.provider.skill.SkillStat;
 import kinoko.provider.skill.SkillStringInfo;
@@ -23,6 +25,7 @@ import kinoko.script.common.ScriptDispatcher;
 import kinoko.server.ServerConfig;
 import kinoko.server.cashshop.CashShop;
 import kinoko.server.cashshop.Commodity;
+import kinoko.server.user.RemoteUser;
 import kinoko.util.BitFlag;
 import kinoko.util.Rect;
 import kinoko.util.Util;
@@ -43,6 +46,7 @@ import kinoko.world.quest.QuestState;
 import kinoko.world.skill.SkillConstants;
 import kinoko.world.skill.SkillManager;
 import kinoko.world.skill.SkillRecord;
+import kinoko.world.user.Account;
 import kinoko.world.user.Dragon;
 import kinoko.world.user.User;
 import kinoko.world.user.effect.Effect;
@@ -51,8 +55,11 @@ import kinoko.world.user.stat.*;
 import java.lang.reflect.Method;
 import java.util.*;
 
+import static kinoko.handler.user.item.CashItemHandler.formatSpeakerMessage;
+
 public final class AdminCommands {
     @Command("test")
+    @Permission("gm")
     public static void test(User user, String[] args) {
         user.getConnectedServer().submitUserQueryRequestAll((queryResult) -> {
             user.write(MessagePacket.system("Users in world: %d", queryResult.size()));
@@ -64,6 +71,7 @@ public final class AdminCommands {
     }
 
     @Command("dispose")
+    @Permission("gm")
     public static void dispose(User user, String[] args) {
         user.closeDialog();
         user.dispose();
@@ -71,6 +79,7 @@ public final class AdminCommands {
     }
 
     @Command("info")
+    @Permission("gm")
     public static void info(User user, String[] args) {
         // User stats
         final Field field = user.getField();
@@ -124,7 +133,8 @@ public final class AdminCommands {
         }
     }
 
-    @Command({ "find", "lookup", "search" })
+    @Command({ "find", "lookup" })
+    @Permission("gm")
     @Arguments({ "item/map/mob/npc/skill/quest/commodity", "id or query" })
     public static void find(User user, String[] args) {
         final String type = args[1];
@@ -375,6 +385,7 @@ public final class AdminCommands {
 
     @Command("npc")
     @Arguments("npc template ID")
+    @Permission("gm")
     public static void npc(User user, String[] args) {
         final int templateId = Integer.parseInt(args[1]);
         final Optional<NpcTemplate> npcTemplateResult = NpcProvider.getNpcTemplate(templateId);
@@ -393,6 +404,7 @@ public final class AdminCommands {
 
     @Command({ "map", "warp" })
     @Arguments("field ID to warp to")
+    @Permission("gm")
     public static void map(User user, String[] args) {
         final int fieldId = Integer.parseInt(args[1]);
         final String portalName;
@@ -415,8 +427,108 @@ public final class AdminCommands {
         user.warp(targetField, portalResult.get(), false, false);
     }
 
+    @Command({ "mapto", "warpto" })
+    @Arguments("character name to warp to")
+    @Permission("gm")
+    public static void mapto(User user, String[] args) {
+        user.getConnectedServer().submitUserQueryRequestAll((queryResult) -> {
+            RemoteUser targetUser = null;
+
+            for (RemoteUser remoteUser : queryResult) {
+                if (remoteUser.getCharacterName().equalsIgnoreCase(args[1])) {
+                    targetUser = remoteUser;
+                    break;
+                }
+            }
+
+            if (targetUser == null) {
+                user.write(MessagePacket.system("Could not find a character with the name: %s", args[1]));
+                return;
+            }
+
+            Optional<Field> fieldResult = user.getConnectedServer().getFieldById(targetUser.getFieldId());
+            if (fieldResult.isEmpty()) {
+                user.write(MessagePacket.system("Could not resolve field ID: %d", targetUser.getFieldId()));
+                return;
+            }
+
+            Field targetField = fieldResult.get();
+            Optional<PortalInfo> portalResult = targetField.getPortalByName("sp");
+            if (portalResult.isEmpty()) {
+                user.write(MessagePacket.system("Could not resolve portal 'sp' for field ID: %d", targetUser.getFieldId()));
+                return;
+            }
+
+            user.warp(targetField, portalResult.get(), false, false);
+        });
+    }
+
+    @Command({ "warpfrom", "wf" })
+    @Arguments("character name to warp and field id")
+    @Permission("gm")
+    public static void warpfrom(User user, String[] args) {
+        if (args.length < 3) {
+            user.write(MessagePacket.system("Usage: @warpfrom [characterName] [fieldId]"));
+            return;
+        }
+
+        String targetName = args[1];
+        int targetFieldId;
+
+        try {
+            targetFieldId = Integer.parseInt(args[2]);
+        } catch (NumberFormatException e) {
+            user.write(MessagePacket.system("Invalid field ID: %s", args[2]));
+            return;
+        }
+
+        user.getConnectedServer().submitUserQueryRequestAll((queryResult) -> {
+            RemoteUser targetRemoteUser = null;
+
+            for (RemoteUser remoteUser : queryResult) {
+                if (remoteUser.getCharacterName().equalsIgnoreCase(targetName)) {
+                    targetRemoteUser = remoteUser;
+                    break;
+                }
+            }
+
+            if (targetRemoteUser == null) {
+                user.write(MessagePacket.system("Could not find a character with the name: %s", targetName));
+                return;
+            }
+
+            Optional<Field> fieldResult = user.getConnectedServer().getFieldById(targetFieldId);
+            if (fieldResult.isEmpty()) {
+                user.write(MessagePacket.system("Could not resolve field ID: %d", targetFieldId));
+                return;
+            }
+
+            Field destinationField = fieldResult.get();
+            Optional<PortalInfo> portalResult = destinationField.getPortalByName("sp");
+            if (portalResult.isEmpty()) {
+                user.write(MessagePacket.system("Could not resolve portal 'sp' for field ID: %d", targetFieldId));
+                return;
+            }
+
+            PortalInfo pi = portalResult.get();
+
+            Optional<User> targetUserOpt = user.getConnectedServer().getUserByCharacterId(targetRemoteUser.getCharacterId());
+            if (targetUserOpt.isEmpty()) {
+                user.write(MessagePacket.system("Target user %s is not currently connected to this server.", targetName));
+                return;
+            }
+
+            User targetUser = targetUserOpt.get();
+            targetUser.warp(destinationField, pi, false, false);
+            user.write(MessagePacket.system("Warped %s to field %d.", targetName, targetFieldId));
+
+        });
+    }
+
+
     @Command("reactor")
     @Arguments("reactor template ID")
+    @Permission("gm")
     public static void reactor(User user, String[] args) {
         final int templateId = Integer.parseInt(args[1]);
         final Optional<ReactorTemplate> reactorTemplateResult = ReactorProvider.getReactorTemplate(templateId);
@@ -431,6 +543,7 @@ public final class AdminCommands {
 
     @Command("hitreactor")
     @Arguments("reactor template ID")
+    @Permission("gm")
     public static void hitReactor(User user, String[] args) {
         final int templateId = Integer.parseInt(args[1]);
         final Field field = user.getField();
@@ -439,13 +552,16 @@ public final class AdminCommands {
             user.write(MessagePacket.system("Could not resolve reactor with template ID : %d", templateId));
             return;
         }
-        final Reactor reactor = reactorResult.get();
-        reactor.setState(reactor.getState() + 1);
-        field.getReactorPool().hitReactor(user, reactor, 0);
+        try (var lockedReactor = reactorResult.get().acquire()) {
+            final Reactor reactor = lockedReactor.get();
+            reactor.setState(reactor.getState() + 1);
+            field.getReactorPool().hitReactor(user, reactor, 0);
+        }
     }
 
     @Command({ "mob", "spawn" })
     @Arguments("mob template ID")
+    @Permission("gm")
     public static void mob(User user, String[] args) {
         final int templateId = Integer.parseInt(args[1]);
         final Optional<MobTemplate> mobTemplateResult = MobProvider.getMobTemplate(templateId);
@@ -473,8 +589,41 @@ public final class AdminCommands {
         }
     }
 
+    @Command("spawnnpc")
+    @Arguments("npc template ID")
+    @Permission("gm")
+    public static void spawnnpc(User user, String[] args) {
+        final int templateId = Integer.parseInt(args[1]);
+        final Optional<NpcTemplate> npcTemplateResult = NpcProvider.getNpcTemplate(templateId);
+        if (npcTemplateResult.isEmpty()) {
+            user.write(MessagePacket.system("Could not resolve npc template ID : %d", templateId));
+            return;
+        }
+        final int count;
+        if (args.length > 2) {
+            count = Integer.parseInt(args[2]);
+        } else {
+            count = 1;
+        }
+        final Field field = user.getField();
+        final Optional<Foothold> footholdResult = field.getFootholdBelow(user.getX(), user.getY());
+        for (int i = 0; i < count; i++) {
+            final Npc npc = new Npc( // x, y, rx0, rx1, fh, flip
+                    npcTemplateResult.get(),
+                    user.getX(),
+                    user.getY(),
+                    (user.getX() + 50),
+                    (user.getY() - 50),
+                    footholdResult.map(Foothold::getSn).orElse(0),
+                    false
+            );
+            field.getNpcPool().addNpc(npc);
+        }
+    }
+
     @Command("togglemob")
     @Arguments("true/false")
+    @Permission("gm")
     public static void disableMob(User user, String[] args) {
         if (args[1].equalsIgnoreCase("true")) {
             user.getField().setMobSpawn(true);
@@ -487,6 +636,7 @@ public final class AdminCommands {
 
     @Command("item")
     @Arguments("item ID")
+    @Permission("gm")
     public static void item(User user, String[] args) {
         final int itemId = Integer.parseInt(args[1]);
         final int quantity;
@@ -516,6 +666,7 @@ public final class AdminCommands {
 
     @Command("clearinventory")
     @Arguments("inventory type")
+    @Permission("gm")
     public static void clearInventory(User user, String[] args) {
         final Optional<InventoryType> inventoryTypeResult = Arrays.stream(InventoryType.values())
                 .filter((type) -> type.name().equalsIgnoreCase(args[1]))
@@ -538,6 +689,7 @@ public final class AdminCommands {
     }
 
     @Command("clearlocker")
+    @Permission("gm")
     public static void clearLocker(User user, String[] args) {
         user.getAccount().getLocker().getCashItems().clear();
         user.write(MessagePacket.system("Locker inventory cleared!"));
@@ -545,6 +697,7 @@ public final class AdminCommands {
 
     @Command({ "meso", "money" })
     @Arguments("amount")
+    @Permission("gm")
     public static void meso(User user, String[] args) {
         final int money = Integer.parseInt(args[1]);
         final InventoryManager im = user.getInventoryManager();
@@ -554,14 +707,17 @@ public final class AdminCommands {
 
     @Command("nx")
     @Arguments("amount")
+    @Permission("gm")
     public static void nx(User user, String[] args) {
         final int nx = Integer.parseInt(args[1]);
-        user.getAccount().setNxPrepaid(nx);
-        user.write(MessagePacket.system("Set NX prepaid to %d", nx));
+        final Account account = user.getAccount();
+        account.setNxCredit(nx);
+        user.write(MessagePacket.system("Set NX credit to %d", nx));
     }
 
     @Command("hp")
     @Arguments("new hp")
+    @Permission("gm")
     public static void hp(User user, String[] args) {
         final int newHp = Integer.parseInt(args[1]);
         user.setHp(newHp);
@@ -569,6 +725,7 @@ public final class AdminCommands {
 
     @Command("mp")
     @Arguments("new mp")
+    @Permission("gm")
     public static void mp(User user, String[] args) {
         final int newMp = Integer.parseInt(args[1]);
         user.setMp(newMp);
@@ -576,6 +733,7 @@ public final class AdminCommands {
 
     @Command("stat")
     @Arguments({ "hp/mp/str/dex/int/luk/ap/sp", "new value" })
+    @Permission("gm")
     public static void stat(User user, String[] args) {
         final String stat = args[1].toLowerCase();
         final int value = Integer.parseInt(args[2]);
@@ -631,6 +789,7 @@ public final class AdminCommands {
 
     @Command("avatar")
     @Arguments("new look")
+    @Permission("gm")
     public static void avatar(User user, String[] args) {
         final int look = Integer.parseInt(args[1]);
         if (look >= 0 && look <= GameConstants.SKIN_MAX) {
@@ -660,6 +819,7 @@ public final class AdminCommands {
 
     @Command("level")
     @Arguments("new level")
+    @Permission("gm")
     public static void level(User user, String[] args) {
         final int level = Integer.parseInt(args[1]);
         if (level < 1 || level > GameConstants.LEVEL_MAX) {
@@ -675,6 +835,7 @@ public final class AdminCommands {
 
     @Command("levelup")
     @Arguments("new level")
+    @Permission("gm")
     public static void levelUp(User user, String[] args) {
         final int level = Integer.parseInt(args[1]);
         if (level <= user.getLevel() || level > GameConstants.LEVEL_MAX) {
@@ -688,6 +849,7 @@ public final class AdminCommands {
 
     @Command("job")
     @Arguments("job ID")
+    @Permission("gm")
     public static void job(User user, String[] args) {
         final int jobId = Integer.parseInt(args[1]);
         final Job job = Job.getById(jobId);
@@ -736,6 +898,7 @@ public final class AdminCommands {
 
     @Command("skill")
     @Arguments({ "skill ID", "skill level" })
+    @Permission("gm")
     public static void skill(User user, String[] args) {
         final int skillId = Integer.parseInt(args[1]);
         final int slv = Integer.parseInt(args[2]);
@@ -757,6 +920,7 @@ public final class AdminCommands {
 
     @Command("morph")
     @Arguments("morph ID")
+    @Permission("gm")
     public static void morph(User user, String[] args) {
         final int morphId = Integer.parseInt(args[1]);
         if (SkillProvider.getMorphInfoById(morphId).isEmpty()) {
@@ -766,12 +930,13 @@ public final class AdminCommands {
         final SecondaryStat ss = user.getSecondaryStat();
         final BitFlag<CharacterTemporaryStat> flag = BitFlag.from(Set.of(CharacterTemporaryStat.Morph), CharacterTemporaryStat.FLAG_SIZE);
         ss.getTemporaryStats().put(CharacterTemporaryStat.Morph, TemporaryStatOption.of(morphId, -5300000, 0));
-        user.write(WvsContext.temporaryStatSet(ss, flag, 0));
+        user.write(WvsContext.temporaryStatSet(ss, flag));
         user.getField().broadcastPacket(UserRemote.temporaryStatSet(user, ss, flag));
     }
 
     @Command("ride")
     @Arguments("vehicle ID")
+    @Permission("gm")
     public static void ride(User user, String[] args) {
         final int vehicleId = Integer.parseInt(args[1]);
         if (ItemProvider.getItemInfo(vehicleId).isEmpty()) {
@@ -781,12 +946,13 @@ public final class AdminCommands {
         final SecondaryStat ss = user.getSecondaryStat();
         final BitFlag<CharacterTemporaryStat> flag = BitFlag.from(Set.of(CharacterTemporaryStat.RideVehicle), CharacterTemporaryStat.FLAG_SIZE);
         ss.getTemporaryStats().put(CharacterTemporaryStat.RideVehicle, TwoStateTemporaryStat.ofTwoState(CharacterTemporaryStat.RideVehicle, vehicleId, Beginner.MONSTER_RIDER, 0));
-        user.write(WvsContext.temporaryStatSet(ss, flag, 0));
+        user.write(WvsContext.temporaryStatSet(ss, flag));
         user.getField().broadcastPacket(UserRemote.temporaryStatSet(user, ss, flag));
     }
 
     @Command("clearquest")
     @Arguments("quest ID")
+    @Permission("gm")
     public static void clearQuest(User user, String[] args) {
         final int questId = Integer.parseInt(args[1]);
         final Optional<QuestRecord> questRecordResult = user.getQuestManager().getQuestRecord(questId);
@@ -802,6 +968,7 @@ public final class AdminCommands {
 
     @Command("startquest")
     @Arguments("quest ID")
+    @Permission("gm")
     public static void startQuest(User user, String[] args) {
         final int questId = Integer.parseInt(args[1]);
         final Optional<QuestInfo> questInfoResult = QuestProvider.getQuestInfo(questId);
@@ -816,6 +983,7 @@ public final class AdminCommands {
 
     @Command("completequest")
     @Arguments("quest ID")
+    @Permission("gm")
     public static void completeQuest(User user, String[] args) {
         final int questId = Integer.parseInt(args[1]);
         final QuestRecord qr = user.getQuestManager().forceCompleteQuest(questId);
@@ -825,6 +993,7 @@ public final class AdminCommands {
 
     @Command({ "questex", "qr" })
     @Arguments("quest ID")
+    @Permission("gm")
     public static void questex(User user, String[] args) {
         final int questId = Integer.parseInt(args[1]);
         final String newValue;
@@ -846,6 +1015,7 @@ public final class AdminCommands {
     }
 
     @Command("killmobs")
+    @Permission("gm")
     public static void killMobs(User user, String[] args) {
         user.getField().getMobPool().forEach((mob) -> {
             if (mob.getHp() > 0) {
@@ -856,6 +1026,7 @@ public final class AdminCommands {
 
     @Command("mobskill")
     @Arguments({ "skill ID", "skill level" })
+    @Permission("gm")
     public static void mobskill(User user, String[] args) {
         final int skillId = Integer.parseInt(args[1]);
         final int slv = Integer.parseInt(args[2]);
@@ -881,6 +1052,7 @@ public final class AdminCommands {
 
     @Command("combo")
     @Arguments("value")
+    @Permission("gm")
     public static void combo(User user, String[] args) {
         final int combo = Integer.parseInt(args[1]);
         user.setTemporaryStat(CharacterTemporaryStat.ComboAbilityBuff, TemporaryStatOption.of(combo, Aran.COMBO_ABILITY, 0));
@@ -888,12 +1060,14 @@ public final class AdminCommands {
     }
 
     @Command({ "battleship", "bship" })
+    @Permission("gm")
     public static void battleship(User user, String[] args) {
         user.write(MessagePacket.system("Battleship HP : %d", Pirate.getBattleshipDurability(user)));
     }
 
     @Command("jaguar")
     @Arguments("index")
+    @Permission("gm")
     public static void jaguar(User user, String[] args) {
         final int index = Integer.parseInt(args[1]);
         user.getWildHunterInfo().setRidingType(index);
@@ -901,6 +1075,7 @@ public final class AdminCommands {
     }
 
     @Command("cd")
+    @Permission("gm")
     public static void cd(User user, String[] args) {
         final var iter = user.getSkillManager().getSkillCooltimes().keySet().iterator();
         while (iter.hasNext()) {
@@ -911,6 +1086,7 @@ public final class AdminCommands {
     }
 
     @Command("max")
+    @Permission("gm")
     public static void max(User user, String[] args) {
         // Set stats
         final CharacterStat cs = user.getCharacterStat();
@@ -973,14 +1149,33 @@ public final class AdminCommands {
     }
 
     @Command("help")
+    @Permission("user")
     public static void help(User user, String[] args) {
         if (args.length == 1) {
+            final boolean isGM = user.getAccount().isGM();
             for (Class<?> clazz : new Class[]{ AdminCommands.class }) {
-                user.write(MessagePacket.system("Admin Commands :"));
+                if(isGM) {
+                    user.write(MessagePacket.system("Admin Commands :"));
+                } else {
+                    user.write(MessagePacket.system("User Commands :"));
+                }
                 for (Method method : clazz.getDeclaredMethods()) {
                     if (!method.isAnnotationPresent(Command.class)) {
                         continue;
                     }
+
+                    if(!isGM) {
+                        Permission permission = method.getAnnotation(Permission.class);
+                        if (permission != null) {
+                            String[] roles = permission.value();
+                            boolean gmCommand = Arrays.asList(roles).contains("gm");
+
+                            if (gmCommand) {
+                                continue;
+                            }
+                        }
+                    }
+
                     user.write(MessagePacket.system("%s", CommandProcessor.getHelpString(method)));
                 }
             }
@@ -997,17 +1192,196 @@ public final class AdminCommands {
     }
 
     @Command("reloaddrops")
+    @Permission("gm")
     public static void reloadDrops(User user, String[] args) {
         RewardProvider.initialize();
     }
 
+    @Command("reloadgacha")
+    @Permission("gm")
+    public static void reloadGacha(User user, String[] args) { GachaponProvider.initialize(); }
+
     @Command("reloadshops")
+    @Permission("gm")
     public static void reloadShops(User user, String[] args) {
         ShopProvider.initialize();
     }
 
     @Command({ "reloadcashshop", "reloadcs" })
+    @Permission("gm")
     public static void reloadCashShop(User user, String[] args) {
         CashShop.initialize();
+    }
+
+    @Command({"s", "smega"})
+    @Arguments("message")
+    @Permission("user")
+    public static void smega(User user, String[] args) {
+        final String message = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+        // TODO: make user pay something for using this
+        user.getConnectedServer().submitWorldSpeakerRequest(user.getCharacterId(), true, BroadcastPacket.speakerWorld(formatSpeakerMessage(user, message), user.getChannelId(), true));
+    }
+
+    @Command("online")
+    @Permission("user")
+    public static void online(User user, String[] args) {
+        user.getConnectedServer().submitUserQueryRequestAll((queryResult) -> {
+            user.write(MessagePacket.system("Users in world: %d", queryResult.size()));
+            for (RemoteUser remoteUser : queryResult) {
+                user.write(MessagePacket.system("[%s] (Ch %d)", remoteUser.getCharacterName(), remoteUser.getChannelId() + 1));
+            }
+        });
+    }
+
+    @Command("dc")
+    @Permission("gm")
+    public static void dc(User user, String[] args) {
+        final String query = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+        Optional<User> findPlayer = user.getConnectedServer().getConnectedUsers().stream().filter(
+                (u) -> u.getCharacterName().equals(query)
+        ).findFirst();
+
+        if (findPlayer.isPresent()) {
+            User player = findPlayer.get();
+            user.getConnectedServer().notifyUserDisconnect(player);
+        } else {
+            user.write(MessagePacket.system("Could not find user with character name : %s", query));
+        }
+    }
+
+    @Command({"whatdropsfrom", "wdf"})
+    @Arguments("mob_name/mob_id")
+    @Permission("user")
+    public static void whatdropsfrom(User user, String[] args) {
+        final String query = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+        final boolean isNumber = Util.isInteger(query);
+        int mobId = -1;
+        if (!isNumber) {
+            final List<Map.Entry<Integer, String>> searchResult = StringProvider.getMobNames().entrySet().stream()
+                    .filter((entry) -> entry.getValue().toLowerCase().contains(query.toLowerCase()))
+                    .sorted(Comparator.comparingInt(Map.Entry::getKey))
+                    .toList();
+            if (!searchResult.isEmpty()) {
+                if (searchResult.size() == 1) {
+                    mobId = searchResult.getFirst().getKey();
+                } else {
+                    user.write(MessagePacket.system("Results for mob name : \"%s\"", query));
+                    for (var entry : searchResult) {
+                        user.write(MessagePacket.system("  %d : %s", entry.getKey(), entry.getValue()));
+                    }
+                    return;
+                }
+            }
+        } else {
+            mobId = Integer.parseInt(query);
+        }
+        final Optional<MobTemplate> mobTemplateResult = MobProvider.getMobTemplate(mobId);
+        if (mobTemplateResult.isEmpty()) {
+            user.write(MessagePacket.system("Could not find mob with %s : %s", isNumber ? "id" : "name", query));
+            return;
+        }
+        final MobTemplate mobTemplate = mobTemplateResult.get();
+        user.write(MessagePacket.system("Mob : %s (%d)", StringProvider.getMobName(mobId), mobId));
+        user.write(MessagePacket.system("  level : %d", mobTemplate.getLevel()));
+        List<Reward> mobRewards = RewardProvider.getMobRewards(mobTemplate.getId());
+        for (var reward : mobRewards) {
+            if(reward.isMoney()) {
+                continue;
+            }
+            final String itemName = StringProvider.getItemName(reward.getItemId());
+            String message = String.format("  - %s (%.2f%%)", itemName, reward.getProb() * 100);
+
+            if (reward.isQuest()) {
+                message += String.format(" [quest: %s]", reward.getQuestId());
+            }
+
+            user.write(MessagePacket.system(message));
+        }
+    }
+
+    @Command({"whodrops", "wd"})
+    @Arguments("item_name/item_id")
+    @Permission("user")
+    public static void whodrops(User user, String[] args) {
+        final String query = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+        final boolean isNumber = Util.isInteger(query);
+        int itemId = -1;
+        if (!isNumber) {
+            final List<Map.Entry<Integer, String>> searchResult = StringProvider.getItemNames().entrySet().stream()
+                    .filter((entry) -> entry.getValue().toLowerCase().contains(query.toLowerCase()))
+                    .sorted(Comparator.comparingInt(Map.Entry::getKey))
+                    .toList();
+            if (!searchResult.isEmpty()) {
+                if (searchResult.size() == 1) {
+                    itemId = searchResult.getFirst().getKey();
+                } else {
+                    user.write(MessagePacket.system("Results for item name : \"%s\"", query));
+                    for (var entry : searchResult) {
+                        user.write(MessagePacket.system("  %d : %s", entry.getKey(), entry.getValue()));
+                    }
+                    return;
+                }
+            }
+        } else {
+            itemId = Integer.parseInt(query);
+        }
+        final Optional<ItemInfo> itemInfoResult = ItemProvider.getItemInfo(itemId);
+        if (itemInfoResult.isEmpty()) {
+            user.write(MessagePacket.system("Could not find item with %s : %s", isNumber ? "id" : "name", query));
+            return;
+        }
+        final ItemInfo itemInfo = itemInfoResult.get();
+        user.write(MessagePacket.system("Item : %s (%d)", StringProvider.getItemName(itemId), itemId));
+
+        // Find all mobs that drop this item
+        List<Map.Entry<MobTemplate, Reward>> mobsWithDrops = new ArrayList<>();
+
+        // Get all mob templates
+        Optional<Map<Integer, MobTemplate>> allMobsOpt = MobProvider.getMobTemplates();
+
+        if (allMobsOpt.isPresent()) {
+            Map<Integer, MobTemplate> allMobs = allMobsOpt.get();
+
+            // For each mob, check if it drops the requested item
+            for (Map.Entry<Integer, MobTemplate> mobEntry : allMobs.entrySet()) {
+                int mobId = mobEntry.getKey();
+                MobTemplate mob = mobEntry.getValue();
+
+                List<Reward> mobRewards = RewardProvider.getMobRewards(mobId);
+                for (Reward reward : mobRewards) {
+                    // Skip money and quest rewards
+                    if (reward.isMoney() || reward.isQuest()) {
+                        continue;
+                    }
+
+                    if (reward.getItemId() == itemId) {
+                        mobsWithDrops.add(Map.entry(mob, reward));
+                        break; // Found the item for this mob, move to next mob
+                    }
+                }
+            }
+
+            // Sort results by drop probability (highest first)
+            mobsWithDrops.sort((a, b) -> Double.compare(b.getValue().getProb(), a.getValue().getProb()));
+
+            // Display results
+            if (mobsWithDrops.isEmpty()) {
+                user.write(MessagePacket.system("No mobs drop this item."));
+            } else {
+                user.write(MessagePacket.system("Mobs that drop this item:"));
+                for (var entry : mobsWithDrops) {
+                    MobTemplate mob = entry.getKey();
+                    Reward reward = entry.getValue();
+                    int mobId = mob.getId();
+                    String mobName = StringProvider.getMobName(mobId);
+                    user.write(MessagePacket.system("[%s] (Lv.%d) - %.2f%%",
+                            mobName,
+                            mob.getLevel(),
+                            reward.getProb() * 100));
+                }
+            }
+        } else {
+            user.write(MessagePacket.system("Unable to retrieve mob data."));
+        }
     }
 }

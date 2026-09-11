@@ -10,6 +10,7 @@ import kinoko.packet.world.MessagePacket;
 import kinoko.packet.world.WvsContext;
 import kinoko.provider.*;
 import kinoko.provider.item.ItemInfo;
+import kinoko.provider.item.MobSummonInfo;
 import kinoko.provider.map.Foothold;
 import kinoko.provider.map.PortalInfo;
 import kinoko.provider.map.ReactorInfo;
@@ -19,11 +20,11 @@ import kinoko.provider.reactor.ReactorTemplate;
 import kinoko.provider.reward.Reward;
 import kinoko.provider.skill.SkillInfo;
 import kinoko.server.dialog.ScriptDialog;
+import kinoko.server.dialog.shop.ShopDialog;
 import kinoko.server.event.EventState;
 import kinoko.server.event.EventType;
 import kinoko.server.field.Instance;
 import kinoko.server.field.InstanceFieldStorage;
-import kinoko.server.node.ServerExecutor;
 import kinoko.server.packet.OutPacket;
 import kinoko.util.Rect;
 import kinoko.util.Tuple;
@@ -35,12 +36,16 @@ import kinoko.world.field.drop.Drop;
 import kinoko.world.field.drop.DropEnterType;
 import kinoko.world.field.drop.DropOwnType;
 import kinoko.world.field.mob.Mob;
+import kinoko.world.field.mob.MobAppearType;
+import kinoko.world.field.mob.MobLeaveType;
+import kinoko.world.field.mob.MobType;
 import kinoko.world.field.npc.Npc;
 import kinoko.world.field.reactor.Reactor;
 import kinoko.world.item.*;
 import kinoko.world.job.Job;
 import kinoko.world.job.JobConstants;
 import kinoko.world.quest.QuestRecord;
+import kinoko.world.quest.QuestRecordType;
 import kinoko.world.skill.SkillManager;
 import kinoko.world.skill.SkillRecord;
 import kinoko.world.user.Dragon;
@@ -52,8 +57,10 @@ import kinoko.world.user.stat.StatConstants;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static kinoko.provider.ItemProvider.MASTERY_BOOKS;
 
 public final class ScriptManagerImpl implements ScriptManager {
     private final ScriptMemory scriptMemory = new ScriptMemory();
@@ -165,13 +172,11 @@ public final class ScriptManagerImpl implements ScriptManager {
     }
 
     @Override
-    public int getJob() {
-        return user.getJob();
-    }
+    public Job getJob() { return Job.getById(user.getJob()); }
 
     @Override
     public void addExp(int exp) {
-        user.addExp(exp);
+        user.addQuestExp(exp);
         user.write(MessagePacket.incExp(exp, 0, true, true));
     }
 
@@ -217,7 +222,7 @@ public final class ScriptManagerImpl implements ScriptManager {
             case WARRIOR, DAWN_WARRIOR_1 -> {
                 cs.setMaxHp(cs.getMaxHp() + Util.getRandom(200, 250));
             }
-            case FIGHTER, DAWN_WARRIOR_2 -> {
+            case FIGHTER, DAWN_WARRIOR_2, WHITE_KNIGHT, PALADIN, DRAGON_KNIGHT, DARK_KNIGHT, DAWN_WARRIOR_3 -> {
                 cs.setMaxHp(cs.getMaxHp() + Util.getRandom(300, 350));
             }
             case PAGE, SPEARMAN, MAGICIAN, BLAZE_WIZARD_1, ARAN_2 -> {
@@ -230,10 +235,10 @@ public final class ScriptManagerImpl implements ScriptManager {
                 cs.setMaxHp(cs.getMaxHp() + Util.getRandom(100, 150));
                 cs.setMaxMp(cs.getMaxMp() + Util.getRandom(25, 50));
             }
-            case HUNTER, CROSSBOWMAN, ASSASSIN, BANDIT, BRAWLER, GUNSLINGER, WIND_ARCHER_2, NIGHT_WALKER_2,
-                 THUNDER_BREAKER_2 -> {
+            case HUNTER, CROSSBOWMAN, ASSASSIN, BANDIT, BRAWLER, GUNSLINGER,
+                    WIND_ARCHER_2, NIGHT_WALKER_2, THUNDER_BREAKER_2, RANGER, BOWMASTER, SNIPER, MARKSMAN, HERMIT, NIGHT_LORD, CHIEF_BANDIT, SHADOWER, MARAUDER, BUCCANEER, OUTLAW, CORSAIR, WIND_ARCHER_3, NIGHT_WALKER_3, THUNDER_BREAKER_3 -> {
                 cs.setMaxHp(cs.getMaxHp() + Util.getRandom(300, 350));
-                cs.setMaxMp(cs.getMaxMp() + Util.getRandom(150, 200));
+                cs.setMaxHp(cs.getMaxHp() + Util.getRandom(150, 200));
             }
             case ARAN_1 -> {
                 cs.setMaxHp(cs.getMaxHp() + Util.getRandom(250, 300));
@@ -242,6 +247,14 @@ public final class ScriptManagerImpl implements ScriptManager {
             case EVAN_1, EVAN_2, EVAN_3, EVAN_4, EVAN_5, EVAN_6, EVAN_7, EVAN_8, EVAN_9, EVAN_10 -> {
                 cs.setMaxHp(cs.getMaxHp() + Util.getRandom(15, 25));
                 cs.setMaxMp(cs.getMaxMp() + Util.getRandom(150, 200));
+            }
+
+            case PRIEST, BISHOP, WIZARD_FP, ARCH_MAGE_FP, WIZARD_IL, ARCH_MAGE_IL -> {
+                cs.setMaxMp(cs.getMaxMp() + Util.getRandom(400, 450));
+            }
+
+            case GM, MANAGER, SUPER_GM -> {
+                cs.setMaxHp(30000); // Just cap it immediately
             }
         }
         // Add ap by job level
@@ -399,8 +412,8 @@ public final class ScriptManagerImpl implements ScriptManager {
         // Update skill
         final SkillRecord sr = skillRecordResult.get();
         sr.setSkillLevel(0);
-        sr.setMasterLevel(0);
         user.getSkillManager().removeSkill(sr.getSkillId());
+        sr.setMasterLevel(0);
         user.updatePassiveSkillData();
         user.validateStat();
         user.write(WvsContext.changeSkillRecordResult(sr, false));
@@ -435,6 +448,28 @@ public final class ScriptManagerImpl implements ScriptManager {
         user.resetTemporaryStat(-itemId);
     }
 
+    @Override
+    public void useSummoningSack(int itemId, int x, int y) {
+        final Optional<MobSummonInfo> mobSummonInfoResult = ItemProvider.getMobSummonInfo(itemId);
+        if (mobSummonInfoResult.isEmpty()) {
+            throw new ScriptError("Could not resolve item mobs for item ID : %d", itemId);
+        }
+        for (var entry : mobSummonInfoResult.get().getEntries()) {
+            final int mobId = entry.getLeft();
+            final int prob = entry.getRight();
+            final int randomNumber = Util.getRandom().nextInt(100) + 1;
+
+            if (randomNumber <= prob) {
+                this.spawnMob(mobId, MobAppearType.NORMAL, x, y, true);
+            }
+        }
+    }
+
+    @Override
+    public int getRandomMasteryBook(int jobId) {
+        return MASTERY_BOOKS.get(getRandomIntBelow(MASTERY_BOOKS.size()));
+    }
+
 
     // INVENTORY METHODS -----------------------------------------------------------------------------------------------
 
@@ -456,10 +491,14 @@ public final class ScriptManagerImpl implements ScriptManager {
 
     @Override
     public boolean addItems(List<Tuple<Integer, Integer>> items) {
+        return addItems(items, 0);
+    }
+
+    public boolean addItems(List<Tuple<Integer, Integer>> items, int hours) {
         if (!canAddItems(items)) {
             return false;
         }
-        // Create items
+
         final List<Item> itemList = new ArrayList<>();
         for (var tuple : items) {
             final int itemId = tuple.getLeft();
@@ -468,9 +507,11 @@ public final class ScriptManagerImpl implements ScriptManager {
             if (itemInfoResult.isEmpty()) {
                 throw new ScriptError("Could not resolve item info for item ID : %d", itemId);
             }
+
             final ItemInfo itemInfo = itemInfoResult.get();
             itemList.add(itemInfo.createItem(user.getNextItemSn(), Math.min(quantity, itemInfo.getSlotMax())));
         }
+
         // Add items to inventory
         for (Item item : itemList) {
             final Optional<List<InventoryOperation>> addItemResult = user.getInventoryManager().addItem(item);
@@ -483,7 +524,7 @@ public final class ScriptManagerImpl implements ScriptManager {
         return true;
     }
 
-    @Override
+//    @Override
     public boolean addItemWithExpiration(int itemId, int expirationInSeconds) {
         if (!canAddItem(itemId, 1)) {
             return false;
@@ -674,7 +715,9 @@ public final class ScriptManagerImpl implements ScriptManager {
         final PortalInfo targetPortal = portalResult.get();
         // Warp user and party members in field
         field.getUserPool().forEachPartyMember(user, (member) -> {
-            member.warp(targetField, targetPortal, false, false);
+            try (var lockedMember = member.acquire()) {
+                member.warp(targetField, targetPortal, false, false);
+            }
         });
         user.warp(targetField, targetPortal, false, false);
     }
@@ -707,7 +750,7 @@ public final class ScriptManagerImpl implements ScriptManager {
         }
         final Instance instance = instanceResult.get();
         variables.forEach(instance::setVariable);
-        final Field targetField = instance.getFieldStorage().getFieldById(mapIds.get(0)).orElseThrow();
+        final Field targetField = instance.getFieldStorage().getFieldById(mapIds.getFirst()).orElseThrow();
         // Resolve portal
         final Optional<PortalInfo> portalResult = targetField.getPortalByName(portalName);
         if (portalResult.isEmpty()) {
@@ -716,7 +759,9 @@ public final class ScriptManagerImpl implements ScriptManager {
         final PortalInfo targetPortal = portalResult.get();
         // Warp user and party members in field
         field.getUserPool().forEachPartyMember(user, (member) -> {
-            member.warp(targetField, targetPortal, false, false);
+            try (var lockedMember = member.acquire()) {
+                member.warp(targetField, targetPortal, false, false);
+            }
         });
         user.warp(targetField, targetPortal, false, false);
     }
@@ -729,22 +774,36 @@ public final class ScriptManagerImpl implements ScriptManager {
         return field;
     }
 
+    public FieldObject getSource() { return source; }
+
     @Override
     public int getFieldId() {
         return field.getFieldId();
     }
 
-    public FieldObject getSource() {
-        return source;
+    @Override
+    public void killMob(int mobTemplateId) {
+        final Optional<Mob> mobResult = user.getField().getMobPool().getByTemplateId(mobTemplateId);
+        if (mobResult.isEmpty()) {
+            throw new ScriptError("Could not resolve mob template ID : %d", mobTemplateId);
+        }
+
+        Mob mob = mobResult.get();
+        user.getField().getMobPool().forEach((field_mob) -> {
+            if (field_mob == mob) {
+                message("Setting HP to 0 -- mob id " + mob.getTemplateId());
+                mob.setHp(0);
+            }
+        });
     }
 
     @Override
-    public void spawnMob(int templateId, int summonType, int x, int y, boolean isLeft) {
+    public void spawnMob(int templateId, int summonType, int x, int y, boolean isLeft, int mobType) {
         final Optional<MobTemplate> mobTemplateResult = MobProvider.getMobTemplate(templateId);
         if (mobTemplateResult.isEmpty()) {
             throw new ScriptError("Could not resolve mob template ID : %d", templateId);
         }
-        final Optional<Foothold> footholdResult = field.getFootholdBelow(x, y - GameConstants.REACTOR_SPAWN_HEIGHT);
+        final Optional<Foothold> footholdResult = user.getField().getFootholdBelow(x, y - GameConstants.REACTOR_SPAWN_HEIGHT);
         final Mob mob = new Mob(
                 mobTemplateResult.get(),
                 null,
@@ -754,7 +813,46 @@ public final class ScriptManagerImpl implements ScriptManager {
         );
         mob.setLeft(isLeft);
         mob.setSummonType(summonType);
-        field.getMobPool().addMob(mob);
+        mob.setMobType(mobType);
+        user.getField().getMobPool().addMob(mob);
+    }
+
+    @Override
+    public void spawnMob(int templateId, int summonType, int x, int y, boolean isLeft) {
+        final Optional<MobTemplate> mobTemplateResult = MobProvider.getMobTemplate(templateId);
+        if (mobTemplateResult.isEmpty()) {
+            throw new ScriptError("Could not resolve mob template ID : %d", templateId);
+        }
+        final Optional<Foothold> footholdResult = user.getField().getFootholdBelow(x, y - GameConstants.REACTOR_SPAWN_HEIGHT);
+        final Mob mob = new Mob(
+                mobTemplateResult.get(),
+                null,
+                x,
+                y,
+                footholdResult.map(Foothold::getSn).orElse(0)
+        );
+        mob.setLeft(isLeft);
+        mob.setSummonType(summonType);
+        user.getField().getMobPool().addMob(mob);
+    }
+
+    @Override
+    public void spawnMob(int templateId, int summonType, int x, int y, boolean isLeft, Field customField) {
+        final Optional<MobTemplate> mobTemplateResult = MobProvider.getMobTemplate(templateId);
+        if (mobTemplateResult.isEmpty()) {
+            throw new ScriptError("Could not resolve mob template ID : %d", templateId);
+        }
+        final Optional<Foothold> footholdResult = customField.getFootholdBelow(x, y - GameConstants.REACTOR_SPAWN_HEIGHT);
+        final Mob mob = new Mob(
+                mobTemplateResult.get(),
+                null,
+                x,
+                y,
+                footholdResult.map(Foothold::getSn).orElse(0)
+        );
+        mob.setLeft(isLeft);
+        mob.setSummonType(summonType);
+        customField.getMobPool().addMob(mob);
     }
 
     @Override
@@ -775,6 +873,20 @@ public final class ScriptManagerImpl implements ScriptManager {
                 isFlip
         );
         targetField.getNpcPool().addNpc(npc);
+    }
+
+    @Override
+    public void openShopNPC(int templateId) {
+        final Optional<Npc> npcResult = field.getNpcPool().getByTemplateId(templateId);
+        if (npcResult.isEmpty()) {
+            throw new ScriptError("Could not find npc with template ID : %d", templateId);
+        }
+        final Npc npc = npcResult.get();
+        if (ShopProvider.isShop(npc.getTemplateId())) {
+            final ShopDialog shopDialog = ShopDialog.from(npc.getTemplate());
+            user.setDialog(shopDialog);
+            user.write(FieldPacket.openShopDlg(user, shopDialog));
+        }
     }
 
     @Override
@@ -842,8 +954,10 @@ public final class ScriptManagerImpl implements ScriptManager {
     public void setReactorState(int templateId, int newState) {
         field.getReactorPool().forEach((reactor) -> {
             if (reactor.getTemplateId() == templateId) {
-                reactor.setState(newState);
-                field.broadcastPacket(FieldPacket.reactorChangeState(reactor, 0, 0, 0));
+                try (var lockedReactor = reactor.acquire()) {
+                    reactor.setState(newState);
+                    field.broadcastPacket(FieldPacket.reactorChangeState(reactor, 0, 0, 0));
+                }
             }
         });
     }
@@ -852,17 +966,70 @@ public final class ScriptManagerImpl implements ScriptManager {
     // EVENT METHODS ---------------------------------------------------------------------------------------------------
 
     @Override
-    public boolean checkParty(int memberCount, Predicate<User> predicate) {
+    public void sleep(long delay, TimeUnit timeUnit) {
+        user.unlock();
+        try {
+            timeUnit.sleep(delay); // Thread.sleep
+        } catch (InterruptedException e) {
+            throw new ScriptError("Interrupted during sleep");
+        } finally {
+            user.lock(); // executes before ScriptError propagates to ScriptDispatcher
+        }
+    }
+
+    @Override
+    public boolean checkParty(int memberCount, int levelMin) {
         final List<User> members = field.getUserPool().getPartyMembers(user.getPartyId());
         if (members.size() < memberCount) {
             return false;
         }
         for (User member : members) {
-            if (!predicate.test(member)) {
+            if (member.getLevel() < levelMin) {
                 return false;
             }
         }
         return true;
+    }
+
+    @Override
+    public void addCooldownTimeForParty(EventType eventType, long time) {
+        final List<User> members = field.getUserPool().getPartyMembers(user.getPartyId());
+        for (User member : members) {
+            member.addCoolDown(eventType, time);
+        }
+    }
+
+    private long getMillisecondsUntilEventReset(EventType eventType) {
+        long remainingTime = getEventAmountDone(eventType) == 0 ? 0 : user.getCoolDownByType(eventType).getNextResetTime() - System.currentTimeMillis();
+        return remainingTime < 0 ? 0 : remainingTime;
+    }
+
+    @Override
+    public String getTimeUntilEventReset(EventType eventType) {
+        long msTillReset = getMillisecondsUntilEventReset(eventType);
+        long days = TimeUnit.MILLISECONDS.toDays(msTillReset);
+        long hours = TimeUnit.MILLISECONDS.toHours(msTillReset) % TimeUnit.DAYS.toHours(1);
+        long minutes = TimeUnit.MILLISECONDS.toMinutes(msTillReset) % TimeUnit.HOURS.toMinutes(1);
+        return (days > 0 ? days + " day(s) " : "") + (hours > 0 ? hours + " hour(s) " : "") + (minutes > 0 ? minutes + " minute(s) " : "");
+    }
+
+    @Override
+    public int getEventAmountDone(EventType eventType) {
+        return user.getEventAmountDone(eventType);
+    }
+
+    @Override
+    public boolean partyHasCoolDown(EventType eventType, int runsPerDay) {
+        final List<User> members = field.getUserPool().getPartyMembers(user.getPartyId());
+        for (User member : members) {
+            if (member.getAccount().isGM()) {
+                return false;
+            }
+            if (member.getEventAmountDone(eventType) >= runsPerDay) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -916,12 +1083,18 @@ public final class ScriptManagerImpl implements ScriptManager {
         }
     }
 
+    public Mob waitForMobDeath(int mobTemplateId) {
+        while (true) {
+            Mob mob = getField().getMobPool().getByTemplateId(mobTemplateId).orElseThrow();
+        }
+    }
+
     @Override
     public void addExpAll(int exp) {
         addExp(exp);
         field.getUserPool().forEach((member) -> {
             if (member.getCharacterId() != user.getCharacterId()) {
-                member.addExp(exp);
+                member.addQuestExp(exp);
             }
         });
     }
@@ -933,7 +1106,7 @@ public final class ScriptManagerImpl implements ScriptManager {
 
     @Override
     public void broadcastMessage(String message) {
-        field.broadcastPacket(MessagePacket.system(message));
+        user.getField().broadcastPacket(MessagePacket.system(message));
     }
 
     @Override
@@ -1119,13 +1292,12 @@ public final class ScriptManagerImpl implements ScriptManager {
     }
 
     private ScriptAnswer handleAnswer() {
-        // Unlock while waiting on answer
-        ServerExecutor.unlockExecutor(field);
+        // Unlock user while waiting on answer
+        user.unlock();
         answerFuture = new CompletableFuture<>();
         final ScriptAnswer answer = answerFuture.join();
         answerFuture = null;
-        // Lock again after join
-        ServerExecutor.lockExecutor(field);
+        user.lock();
         user.setDialog(null);
         // Handle answer
         if (answer.getAction() == -1 || answer.getAction() == 5) {
@@ -1152,5 +1324,10 @@ public final class ScriptManagerImpl implements ScriptManager {
                     .map(ScriptMessageParam::getValue)
                     .reduce(0, (a, b) -> a | b);
         }
+    }
+
+    @Override
+    public int getRandomIntBelow(int number) {
+        return new Random().nextInt(number);
     }
 }

@@ -12,15 +12,32 @@ public enum QuestRecordType {
     MushroomCastleThornRemover(2324),
     MushroomCastlePepe(2330),
 
+    DualBladeInfiltration(7635),
+    DualBladeDualWallpaper(2358),
+    DualBladeDualDiary(2369),
+
+    WheresHella(3006),
+    AcquiringTheFairyDust(3014),
+    TheSmallGraveThatsHidden(3017),
+    AlcasterAndTheDarkCrystal(3035),
+
+    MorensNewDiscovery(6029),
+
     UnityPortal(7050),              // Dimensional Mirror Return Map
+    MemoryKeeper(7081),
     FreeMarket(7600),               // Free Market Return Map
     TatamoLikeness(7810),           // Chief Tatamo Magic Seed Discount
     WorldTour(8792),                // World Tour Return Map
+    GachaponEvent(9000),
 
     CygnusTutorial(20022),          // Cygnus Tutorial
     AranTutorial(21002),            // Aran Tutorial
     AranGuideEffect(21003),         // Aran Tutorial Effects
     AranHelperClear(21019),         // Aran Tutorial Helper
+    SecondJobAran(21203),
+    PuppeteersWarning(21760),
+    ThePuppeteersCave(21761),
+    GatheringStrangeInformation(21762),
     EvanDragonEyes(22012),
     EvanDreamEffect(22013),
     EvanTutorialEffect(22014),
@@ -41,7 +58,11 @@ public enum QuestRecordType {
 
     EdelsteinUnlockTownQuests(23977), //Not sure what quest is supposed to update this
     EdelsteinFabioFirebombs(23979),
-    EdelsteinWonny10PM(23984);
+    EdelsteinWonny10PM(23984),
+    ZakumPreqStageOne(100200),
+    ZakumPreqStageTwo(100201),
+    Zakum(100250),
+    MuLungDojoTutorial(1000000);
 
     private final int questId;
 

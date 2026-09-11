@@ -65,11 +65,51 @@ public final class WvsContext {
         return outPacket;
     }
 
-    public static OutPacket temporaryStatSet(SecondaryStat secondaryStat, BitFlag<CharacterTemporaryStat> flag, int delay) {
+    public static OutPacket temporaryStatSet(SecondaryStat secondaryStat, BitFlag<CharacterTemporaryStat> flag) {
         final OutPacket outPacket = OutPacket.of(OutHeader.TemporaryStatSet);
         secondaryStat.encodeForLocal(flag, outPacket);
-        outPacket.encodeShort(delay); // tDelay
+        outPacket.encodeShort(0); // tDelay
         outPacket.encodeByte(0); // SecondaryStat::IsMovementAffectingStat -> bSN
+        return outPacket;
+    }
+
+    public static OutPacket findFriendResult(List<User> users) {
+        final OutPacket outPacket = OutPacket.of(OutHeader.FindFriend);
+        outPacket.encodeByte(8);
+        outPacket.encodeShort(users.size());
+        for (User usr : users) {
+            outPacket.encodeInt(usr.getCharacterId());
+            outPacket.encodeString(usr.getCharacterName());
+            outPacket.encodeByte(usr.getLevel());
+            outPacket.encodeShort(usr.getJob());
+            outPacket.encodeInt(0);
+            outPacket.encodeInt(0);
+        }
+        return outPacket;
+    }
+
+    public static OutPacket accountMoreInfoResult(boolean success) {
+        final OutPacket outPacket = OutPacket.of(OutHeader.AccountMoreInfo);
+        outPacket.encodeInt(4);
+        outPacket.encodeInt(success ? 1 : 0);
+        return outPacket;
+    }
+
+    public static OutPacket accountMoreInfoResult(int location, int todo, int birthday, int found) {
+        final OutPacket outPacket = OutPacket.of(OutHeader.AccountMoreInfo);
+        outPacket.encodeInt(2);
+        outPacket.encodeInt(location);
+        outPacket.encodeInt(birthday);
+        outPacket.encodeInt(todo);
+        outPacket.encodeInt(found);
+        return outPacket;
+    }
+
+    public static OutPacket findFriendResult(int result) {
+        final OutPacket outPacket = OutPacket.of(OutHeader.FindFriend);
+        outPacket.encodeByte(6);
+        outPacket.encodeInt(1);
+        outPacket.encodeInt(result);
         return outPacket;
     }
 
@@ -209,9 +249,9 @@ public final class WvsContext {
         // CUIUserInfo::SetTamingMobInfo (bool -> int, int, int)
         outPacket.encodeByte(false);
 
-        // aWishItem (byte * int), nCommSN = 0 becomes Brown Flight Headgear for some reason
+        // aWishItem (byte * int), itemId = 0 becomes Brown Flight Headgear for some reason
         final List<Integer> wishlist = user.getAccount().getWishlist().stream()
-                .filter((commodityId) -> commodityId != 0)
+                .filter((itemId) -> itemId != 0)
                 .toList();
         outPacket.encodeByte(wishlist.size());
         wishlist.forEach(outPacket::encodeInt);
@@ -324,6 +364,47 @@ public final class WvsContext {
         for (SingleMacro macroSysDatum : macroSysData) {
             macroSysDatum.encode(outPacket); // SINGLEMACRO::Decode
         }
+        return outPacket;
+    }
+
+    public static OutPacket SetPassengerRequest(int reqCharacterId) {
+        final OutPacket outPacket = OutPacket.of(OutHeader.SetPassenserRequest);
+        outPacket.encodeInt(reqCharacterId);
+        return outPacket;
+    }
+
+    public static OutPacket followCharacter(int driverChrId, boolean transferField, int x, int y) {
+        OutPacket outPacket = OutPacket.of(OutHeader.UserFollowCharacter);
+        outPacket.encodeInt(driverChrId);
+        if (driverChrId < 0) {
+            outPacket.encodeByte(transferField);
+            if (transferField) {
+                outPacket.encodePositionInt(x, y);
+            }
+        }
+        return outPacket;
+    }
+
+    public static OutPacket UserGivePopularityError(int result) {
+        return OnGivePopularityResult(result, null, true, 0);
+    }
+
+    public static OutPacket OnGivePopularityResult(int result, String characterName, boolean raise, int newFame) {
+        final OutPacket outPacket = OutPacket.of(OutHeader.GivePopularityResult);
+        outPacket.encodeByte(result);
+        if ((result == 0) || (result == 5)) {
+            outPacket.encodeString(characterName == null ? "" : characterName);
+            outPacket.encodeByte(raise ? 1 : 0);
+            if (result == 0) {
+                outPacket.encodeInt(newFame);
+            }
+        }
+        return outPacket;
+    }
+
+    public static OutPacket OnMerchantResult() {
+        final OutPacket outPacket = OutPacket.of(OutHeader.EntrustedShopCheckResult);
+        outPacket.encodeInt(7);
         return outPacket;
     }
 }

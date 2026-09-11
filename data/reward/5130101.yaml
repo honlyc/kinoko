@@ -18,6 +18,7 @@ rewards:
   - [ 1082076, 1, 1, 0.000100 ] # Gold Cleave
   - [ 1092002, 1, 1, 0.000100 ] # Red Cross Shield
   - [ 1312009, 1, 1, 0.000100 ] # Hawkhead
+  - [ 1342000, 1, 1, 0.002500 ] # Champion Katara
   - [ 1372012, 1, 1, 0.000100 ] # Crystal Wand
   - [ 1452005, 1, 1, 0.000100 ] # Ryden
   - [ 2000003, 1, 1, 0.010000 ] # Blue Potion
@@ -33,3 +34,4 @@ rewards:
   - [ 4130010, 1, 1, 0.000300 ] # Wand Production Stimulator
   - [ 4130013, 1, 1, 0.000300 ] # Crossbow Production Stimulator
   - [ 4130018, 1, 1, 0.000300 ] # Armor Production Stimulator
+  - [ 2044601, 1, 1, 0.0003 ]

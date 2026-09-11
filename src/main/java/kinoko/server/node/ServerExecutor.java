@@ -71,7 +71,7 @@ public final class ServerExecutor {
         return scheduler.schedule(() -> submit(field, runnable), delay, timeUnit);
     }
 
-    public static ScheduledFuture<?> scheduleAtFixedRate(Field field, Runnable runnable, long initialDelay, long delay, TimeUnit timeUnit) {
+    public static ScheduledFuture<?> scheduleWithFixedDelay(Field field, Runnable runnable, long initialDelay, long delay, TimeUnit timeUnit) {
         return scheduler.scheduleAtFixedRate(() -> submit(field, runnable), initialDelay, delay, timeUnit);
     }
 
@@ -93,7 +93,7 @@ public final class ServerExecutor {
         return scheduler.schedule(() -> submitService(runnable), delay, timeUnit);
     }
 
-    public static ScheduledFuture<?> scheduleServiceAtFixedRate(Runnable runnable, long initialDelay, long delay, TimeUnit timeUnit) {
+    public static ScheduledFuture<?> scheduleServiceWithFixedRate(Runnable runnable, long initialDelay, long delay, TimeUnit timeUnit) {
         return scheduler.scheduleAtFixedRate(() -> submitService(runnable), initialDelay, delay, timeUnit);
     }
 
@@ -101,10 +101,11 @@ public final class ServerExecutor {
     // HELPER METHODS --------------------------------------------------------------------------------------------------
 
     public static GameExecutor getExecutor(Field field) {
-        final int executorIndex = field.getFieldStorage() instanceof InstanceFieldStorage instanceFieldStorage ?
-                instanceFieldStorage.getInstance().getInstanceId() :
-                field.getExecutorIndex();
-        return gameExecutors.get(Math.floorMod(executorIndex, gameExecutors.size()));
+        if (field.getFieldStorage() instanceof InstanceFieldStorage instanceFieldStorage) {
+            return gameExecutors.get(instanceFieldStorage.getInstance().getInstanceId() % gameExecutors.size());
+        } else {
+            return gameExecutors.get(field.getExecutorIndex() % gameExecutors.size());
+        }
     }
 
     public static void lockExecutor(Field field) {

@@ -41,6 +41,8 @@ public final class CharacterData implements Encodable {
     private int guildId;
     private Instant creationTime;
     private Instant maxLevelTime;
+    private String linkedCharacter;
+    private PersonalInfo personalInfo;
 
     public CharacterData(int accountId) {
         this.accountId = accountId;
@@ -56,6 +58,16 @@ public final class CharacterData implements Encodable {
 
     public void setCharacterStat(CharacterStat characterStat) {
         this.characterStat = characterStat;
+    }
+
+    public void setPersonalInfo(PersonalInfo personalInfo) { this.personalInfo = personalInfo; }
+
+    public PersonalInfo getPersonalInfo() {
+        return this.personalInfo;
+    }
+
+    public void setLinkedCharacter(String characterName) {
+        this.linkedCharacter = characterName;
     }
 
     public InventoryManager getInventoryManager() {
@@ -202,7 +214,12 @@ public final class CharacterData implements Encodable {
         if (flag.hasFlag(DBChar.CHARACTER)) {
             characterStat.encode(outPacket);
             outPacket.encodeByte(friendMax); // nFriendMax
-            outPacket.encodeByte(false); // sLinkedCharacter: bool -> str
+            if(linkedCharacter != null) {
+                outPacket.encodeByte(true); // sLinkedCharacter: bool -> str
+                outPacket.encodeString(linkedCharacter);
+            } else {
+                outPacket.encodeByte(false);
+            }
         }
         if (flag.hasFlag(DBChar.MONEY)) {
             outPacket.encodeInt(inventoryManager.getMoney()); // nMoney

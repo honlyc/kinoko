@@ -64,7 +64,6 @@ public final class MobHandler {
         final short mobCtrlSn = inPacket.decodeShort(); // nMobCtrlSN
         final byte actionMask = inPacket.decodeByte(); // bNextAttackPossible | (4 * (bRushMove | (2 * bRiseByToss | 2 * nMobCtrlState)))
         final byte actionAndDir = inPacket.decodeByte(); // nActionAndDir
-
         final int targetInfo = inPacket.decodeInt(); // CMob::TARGETINFO { short x, short y } || { short nSkillIDandLev, short nDelay }
 
         final List<Tuple<Integer, Integer>> multiTargetForBall = new ArrayList<>();
@@ -120,8 +119,13 @@ public final class MobHandler {
 
         final Field field = user.getField();
         final Optional<Mob> mobResult = field.getMobPool().getById(objectId);
+
+        // Jesters
+        if (field.getFieldId() == 682010203) {
+            return;
+        }
+
         if (mobResult.isEmpty()) {
-            log.error("Received MobApplyCtrl for invalid object with ID : {}", objectId);
             return;
         }
         final Mob mob = mobResult.get();
@@ -262,7 +266,7 @@ public final class MobHandler {
         } else if (mai.isSkill) {
             final int skillId = mai.targetInfo & 0xFF;
             final int slv = (mai.targetInfo >> 8) & 0xFF;
-            final int option = (mai.targetInfo >> 16) & 0xFFFF; // tDelay
+            final int option = (mai.targetInfo >> 16) & 0xFFFF;
 
             final Optional<MobSkill> mobSkillResult = mob.getSkill(skillId);
             if (mobSkillResult.isEmpty()) {
@@ -292,14 +296,13 @@ public final class MobHandler {
             mob.setMp(Math.max(mob.getMp() - si.getValue(SkillStat.mpCon, slv), 0));
             mob.setNextSkillUse(now.plus(GameConstants.MOB_SKILL_COOLTIME, ChronoUnit.SECONDS));
             mob.setSkillOnCooltime(mobSkill, now.plus(si.getValue(SkillStat.interval, slv), ChronoUnit.SECONDS));
-
-            if (!applyMobSkill(mob, mobSkill, si, option)) {
+            if (!applyMobSkill(mob, mobSkill, si)) {
                 log.error("{} : Could not apply mob skill effect for skill {}", mob, mobSkill.getSkillType().name());
             }
         }
     }
 
-    private static boolean applyMobSkill(Mob mob, MobSkill mobSkill, SkillInfo si, int delay) {
+    private static boolean applyMobSkill(Mob mob, MobSkill mobSkill, SkillInfo si) {
         final Field field = mob.getField();
         final MobSkillType skillType = mobSkill.getSkillType();
         final int skillId = mobSkill.getSkillId();
@@ -318,7 +321,7 @@ public final class MobHandler {
                 if (prop > 0 && !Util.succeedProp(prop)) {
                     continue;
                 }
-                targetMob.setTemporaryStat(mts, MobStatOption.ofMobSkill(si.getValue(SkillStat.x, slv), skillId, slv, si.getDuration(slv)), delay);
+                targetMob.setTemporaryStat(mts, MobStatOption.ofMobSkill(si.getValue(SkillStat.x, slv), skillId, slv, si.getDuration(slv)), 0);
             }
             return true;
         }
@@ -344,8 +347,7 @@ public final class MobHandler {
                         continue;
                     }
                 }
-                final TemporaryStatOption option = TemporaryStatOption.ofMobSkill(Math.max(si.getValue(SkillStat.x, slv), 1), skillId, slv, si.getDuration(slv));
-                targetUser.setTemporaryStat(Map.of(cts, option), delay);
+                targetUser.setTemporaryStat(cts, TemporaryStatOption.ofMobSkill(Math.max(si.getValue(SkillStat.x, slv), 1), skillId, slv, si.getDuration(slv)));
             }
             return true;
         }
@@ -379,19 +381,19 @@ public final class MobHandler {
                 }
             }
             case AREA_FIRE, AREA_POISON -> {
-                field.getAffectedAreaPool().addAffectedArea(AffectedArea.mobSkill(mob, si, slv, delay));
+                field.getAffectedAreaPool().addAffectedArea(AffectedArea.mobSkill(mob, si, slv, 0));
             }
             case PCOUNTER -> {
                 mob.setTemporaryStat(Map.of(
                         MobTemporaryStat.PImmune, MobStatOption.ofMobSkill(1, skillId, slv, si.getDuration(slv)),
                         MobTemporaryStat.PCounter, MobStatOption.ofMobSkill(si.getValue(SkillStat.x, slv), skillId, slv, si.getDuration(slv))
-                ), delay);
+                ), 0);
             }
             case MCOUNTER -> {
                 mob.setTemporaryStat(Map.of(
                         MobTemporaryStat.MImmune, MobStatOption.ofMobSkill(1, skillId, slv, si.getDuration(slv)),
                         MobTemporaryStat.MCounter, MobStatOption.ofMobSkill(si.getValue(SkillStat.x, slv), skillId, slv, si.getDuration(slv))
-                ), delay);
+                ), 0);
             }
             case PMCOUNTER -> {
                 mob.setTemporaryStat(Map.of(
@@ -399,7 +401,7 @@ public final class MobHandler {
                         MobTemporaryStat.MImmune, MobStatOption.ofMobSkill(1, skillId, slv, si.getDuration(slv)),
                         MobTemporaryStat.PCounter, MobStatOption.ofMobSkill(si.getValue(SkillStat.x, slv), skillId, slv, si.getDuration(slv)),
                         MobTemporaryStat.MCounter, MobStatOption.ofMobSkill(si.getValue(SkillStat.x, slv), skillId, slv, si.getDuration(slv))
-                ), delay);
+                ), 0);
             }
             case SUMMON -> {
                 final Optional<SummonInfo> summonInfoResult = SkillProvider.getMobSummonInfoByLevel(mobSkill.getSkillLevel());

@@ -156,12 +156,17 @@ public final class HitHandler {
                 return;
             }
         }
-        final TemporaryStatOption option = TemporaryStatOption.ofMobSkill(Math.max(si.getValue(SkillStat.x, slv), 1), skillId, slv, si.getDuration(slv));
-        user.setTemporaryStat(Map.of(cts, option), 0);
+        user.setTemporaryStat(cts, TemporaryStatOption.ofMobSkill(Math.max(si.getValue(SkillStat.x, slv), 1), skillId, slv, si.getDuration(slv)));
     }
 
     private static void handleHit(User user, HitInfo hitInfo) {
         final int damage = hitInfo.damage;
+
+        if (damage > 0) {
+            user.getAbManager().resetMisses();
+        } else {
+            user.getAbManager().addMiss();
+        }
 
         // Compute damage reductions
         final int powerGuardReduce = handleReflect(user, hitInfo);
@@ -176,7 +181,7 @@ public final class HitHandler {
 
         // Final damage
         hitInfo.finalDamage = damage - powerGuardReduce - mesoGuardReduce - achillesReduce - comboBarrierReduce - magicGuardReduce - magicShieldReduce - blueAuraReduce;
-        log.debug("Hit delta : {} = {} - {} - {} - {} - {} - {} - {} - {}", hitInfo.finalDamage, damage, powerGuardReduce, mesoGuardReduce, achillesReduce, comboBarrierReduce, magicGuardReduce, magicShieldReduce, blueAuraReduce);
+        // log.debug("Hit delta : {} = {} - {} - {} - {} - {} - {} - {} - {}", hitInfo.finalDamage, damage, powerGuardReduce, mesoGuardReduce, achillesReduce, comboBarrierReduce, magicGuardReduce, magicShieldReduce, blueAuraReduce);
 
         // Process hit damage
         if (hitInfo.finalDamage > 0) {

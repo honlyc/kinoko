@@ -3,8 +3,7 @@ package kinoko.server.event;
 import kinoko.server.field.FieldStorage;
 import kinoko.server.node.ServerExecutor;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 
@@ -31,7 +30,7 @@ public final class Airport extends Event {
     @Override
     public void initialize() {
         // Initialize current state
-        final ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+        final LocalDateTime now = LocalDateTime.now();
         final int minute = now.getMinute() % 5;
         if (minute >= 1 && minute < 4) {
             currentState = EventState.AIRPORT_BOARDING;
@@ -41,8 +40,8 @@ public final class Airport extends Event {
             currentState = EventState.AIRPORT_INSIDE;
         }
         // Schedule event - run every minute
-        final ZonedDateTime nextStateTime = now.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1);
-        eventFuture = ServerExecutor.scheduleServiceAtFixedRate(this::nextState, now.until(nextStateTime, ChronoUnit.MILLIS), 60 * 1000, TimeUnit.MILLISECONDS);
+        final LocalDateTime nextStateTime = now.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1);
+        eventFuture = ServerExecutor.scheduleServiceWithFixedRate(this::nextState, now.until(nextStateTime, ChronoUnit.MILLIS), 60 * 1000, TimeUnit.MILLISECONDS);
     }
 
     @Override

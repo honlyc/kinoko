@@ -25,7 +25,7 @@ public class Effect implements Encodable {
         outPacket.encodeByte(type.getValue());
         switch (type) {
             case LevelUp, PlayPortalSE, JobChanged, QuestComplete, MonsterBookCardGet, ItemLevelUp,
-                 ExpItemConsumed, Buff, SoulStoneUse, RepeatEffectRemove, EvolRing -> {
+                    ExpItemConsumed, Buff, SoulStoneUse, RepeatEffectRemove, EvolRing -> {
                 // no encodes
             }
             case Quest -> {
@@ -43,10 +43,11 @@ public class Effect implements Encodable {
                 outPacket.encodeByte(int2); // pet index
             }
             case ProtectOnDieItemUse -> {
-                outPacket.encodeByte(int1 == 5130000); // is safety charm
-                outPacket.encodeByte(int2); // times left
-                outPacket.encodeByte(int3); // days left
-                if (int1 != 5130000) {
+                outPacket.encodeByte(bool1); // is safety charm
+                if (bool1) {
+                    outPacket.encodeByte(int1); // times left
+                    outPacket.encodeByte(int2); // days left
+                } else {
                     outPacket.encodeInt(int1); // nItemID
                 }
             }

@@ -2,6 +2,7 @@ package kinoko.server.dialog.miniroom;
 
 import kinoko.packet.field.MiniRoomPacket;
 import kinoko.packet.user.UserPacket;
+import kinoko.server.node.ServerExecutor;
 import kinoko.server.packet.InPacket;
 import kinoko.world.user.User;
 import kinoko.world.user.data.MiniGameRecord;
@@ -98,10 +99,13 @@ public abstract class MiniGameRoom extends MiniRoom {
     }
 
     @Override
-    public void leave(User user) {
+    public void leaveUnsafe(User user) {
+        assert user.isLocked();
         final User other = getOther(user);
         if (other != null && isGameOn()) {
-            MiniGameRecord.processResult(getType(), other.getMiniGameRecord(), user.getMiniGameRecord(), false, isScorePenalty());
+            try (var lockedOther = other.acquire()) {
+                MiniGameRecord.processResult(getType(), other.getMiniGameRecord(), user.getMiniGameRecord(), false, isScorePenalty());
+            }
             broadcastPacket(MiniRoomPacket.MiniGame.gameResult(MiniGameResultType.GIVEUP, this, getUserIndex(other)));
             setGameOn(false);
             setReady(false);
@@ -118,13 +122,21 @@ public abstract class MiniGameRoom extends MiniRoom {
     protected final void gameSet(MiniGameResultType resultType, User winner, User loser) {
         final boolean isDraw = resultType == MiniGameResultType.DRAW;
         final boolean isScorePenalty = resultType == MiniGameResultType.GIVEUP && isScorePenalty();
-        MiniGameRecord.processResult(getType(), winner.getMiniGameRecord(), loser.getMiniGameRecord(), isDraw, isScorePenalty);
-        broadcastPacket(MiniRoomPacket.MiniGame.gameResult(resultType, this, getUserIndex(winner)));
-        setGameOn(false);
-        setReady(false);
-        for (User leaver : leaveBooked) {
-            setLeaveRequest(leaver, MiniRoomLeaveType.UserRequest);
-        }
-        leaveBooked.clear();
+        ServerExecutor.submit(winner, () -> {
+            try (var lockedRoom = this.acquire()) {
+                try (var lockedWinner = winner.acquire()) {
+                    try (var lockedLoser = loser.acquire()) {
+                        MiniGameRecord.processResult(getType(), winner.getMiniGameRecord(), loser.getMiniGameRecord(), isDraw, isScorePenalty);
+                    }
+                }
+                broadcastPacket(MiniRoomPacket.MiniGame.gameResult(resultType, this, getUserIndex(winner)));
+                setGameOn(false);
+                setReady(false);
+                for (User leaver : leaveBooked) {
+                    setLeaveRequest(leaver, MiniRoomLeaveType.UserRequest);
+                }
+                leaveBooked.clear();
+            }
+        });
     }
 }

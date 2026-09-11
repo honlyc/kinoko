@@ -38,17 +38,15 @@ public final class CentralServerNode extends Node {
     private final MessengerStorage messengerStorage = new MessengerStorage();
     private final PartyStorage partyStorage = new PartyStorage();
     private final GuildStorage guildStorage = new GuildStorage();
+
     private final CompletableFuture<?> initializeFuture = new CompletableFuture<>();
     private final CompletableFuture<?> shutdownFuture = new CompletableFuture<>();
     private final int port;
-
     private ChannelFuture centralServerFuture;
-
 
     public CentralServerNode(int port) {
         this.port = port;
     }
-
 
     // CHANNEL METHODS -------------------------------------------------------------------------------------------------
 

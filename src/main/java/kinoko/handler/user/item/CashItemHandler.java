@@ -33,6 +33,7 @@ import kinoko.world.field.MapleTvMessage;
 import kinoko.world.field.affectedarea.AffectedArea;
 import kinoko.world.item.*;
 import kinoko.world.skill.SkillConstants;
+import kinoko.world.skill.SkillManager;
 import kinoko.world.skill.SkillRecord;
 import kinoko.world.user.AvatarLook;
 import kinoko.world.user.Pet;
@@ -154,7 +155,9 @@ public final class CashItemHandler extends ItemHandler {
                         user.write(WvsContext.mapleTvUseRes("Unable to find the character."));
                         return;
                     }
-                    receiver = receiverResult.get().getCharacterData().getAvatarLook();
+                    try (var lockedReceiver = receiverResult.get().acquire()) {
+                        receiver = lockedReceiver.get().getCharacterData().getAvatarLook();
+                    }
                 }
                 final String s1 = inPacket.decodeString();
                 final String s2 = inPacket.decodeString();
@@ -485,7 +488,10 @@ public final class CashItemHandler extends ItemHandler {
                 if (npcTemplate.isTrunk()) {
                     final TrunkDialog trunkDialog = TrunkDialog.from(npcTemplate);
                     user.setDialog(trunkDialog);
-                    user.write(TrunkPacket.openTrunkDlg(npcId, user.getAccount().getTrunk()));
+                    // Lock account to access trunk
+                    try (var lockedAccount = user.getAccount().acquire()) {
+                        user.write(TrunkPacket.openTrunkDlg(npcId, lockedAccount.get().getTrunk()));
+                    }
                 } else {
                     final ShopDialog shopDialog = ShopDialog.from(npcTemplate);
                     user.setDialog(shopDialog);
@@ -682,6 +688,65 @@ public final class CashItemHandler extends ItemHandler {
                     user.write(UserLocal.effect(Effect.lotteryUse(itemId, rewardEntry.getEffect())));
                 }
             }
+            case SHOPSCANNER -> {
+                final int sItemId = inPacket.decodeInt();
+                log.debug(sItemId);
+            }
+            case MONEYPOCKET -> {
+                int meso = itemInfo.getInfo(ItemInfoType.meso);
+                int mesoStDev = itemInfo.getInfo(ItemInfoType.mesostdev);
+                int result;
+
+                if (mesoStDev <= 0) { // Fixed meso bag
+                    result = meso;
+                } else { // Random meso bag
+                    int mesoMin = itemInfo.getInfo(ItemInfoType.mesomin);
+                    int mesoMax = itemInfo.getInfo(ItemInfoType.mesomax);
+
+                    // poor man’s Gaussian
+                    int avg = (mesoMin + mesoMax) / 2;
+                    int offset = (Util.getRandom(mesoMax - mesoMin) + Util.getRandom(mesoMax - mesoMin)) / 2;
+                    result = mesoMin + offset;
+                }
+
+                // Consume item
+                final Optional<InventoryOperation> removeItemResult = im.removeItem(position, item, 1);
+                if (removeItemResult.isEmpty()) {
+                    throw new IllegalStateException(String.format("Could not remove reward item %d in position %d", item.getItemId(), position));
+                }
+                user.write(WvsContext.inventoryOperation(removeItemResult.get(), false));
+                // Add Meso
+                user.getInventoryManager().addMoney(result);
+                user.write(WvsContext.statChanged(Stat.MONEY, user.getInventoryManager().getMoney(), false));
+                user.dispose();
+            }
+            case NAMING -> {
+                final int equipItemPosition = inPacket.decodeByte();
+                // Resolve equip item
+                final InventoryType equipInventoryType = InventoryType.getByPosition(InventoryType.EQUIP, equipItemPosition);
+                final Item equipItem = im.getInventoryByType(equipInventoryType).getItem(equipItemPosition);
+                if (equipItem == null) {
+                    log.error("Could not resolve equip item to name in position {}", equipItemPosition);
+                    user.dispose();
+                    return;
+                }
+
+                // Consume item
+                final Optional<InventoryOperation> removeUpgradeItemResult = im.removeItem(position, item, 1);
+                if (removeUpgradeItemResult.isEmpty()) {
+                    throw new IllegalStateException(String.format("Could not remove item name item %d in position %d", item.getItemId(), position));
+                }
+                user.write(WvsContext.inventoryOperation(removeUpgradeItemResult.get(), false));
+                // Update item
+                equipItem.setTitle(user.getCharacterName());
+                // Update client
+                final Optional<InventoryOperation> updateItemResult = im.updateItem(equipItemPosition, equipItem);
+                if (updateItemResult.isEmpty()) {
+                    throw new IllegalStateException(String.format("Could not update equip item %d in position %d", equipItem.getItemId(), equipItemPosition));
+                }
+                user.write(WvsContext.inventoryOperation(updateItemResult.get(), true));
+                user.dispose();
+            }
             case null -> {
                 log.error("Unknown cash item type for item ID : {}", item.getItemId());
                 user.dispose();
@@ -696,7 +761,7 @@ public final class CashItemHandler extends ItemHandler {
 
     // HELPER METHODS --------------------------------------------------------------------------------------------------
 
-    private static String formatSpeakerMessage(User user, String message) {
+    public static String formatSpeakerMessage(User user, String message) {
         final Item medalItem = user.getInventoryManager().getEquipped().getItem(BodyPart.MEDAL.getValue());
         if (medalItem != null) {
             final String medalName = StringProvider.getItemName(medalItem.getItemId());

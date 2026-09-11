@@ -2,10 +2,15 @@
 
 Kinoko is a server emulator for the popular mushroom game.
 
+## MapleGlory
+
+This project is based on [Kinoko](https://github.com/iw2d/kinoko), 80% of logic is done by Kinoko's developer.
+Main difference between the repos is the addition of A LOT of quests -- not all conform with GMS behaviour.
+
 ## Setup
 
 Basic configuration is available via environment variables - the names and default values of the configurable options
-are defined in [ServerConstants.java](src/main/java/kinoko/server/ServerConstants.java)
+are defined in [ServerConstants.java](src/main/java/mapleglory/server/ServerConstants.java) and [ServerConfig.java](src/main/java/mapleglory/server/ServerConfig.java), and in `.env`.
 and [ServerConfig.java](src/main/java/kinoko/server/ServerConfig.java).
 
 > [!NOTE]
@@ -32,36 +37,4 @@ Building the project requires Java 21 and maven.
 ```bash
 # Build jar
 $ mvn clean package
-```
-
-#### Database setup
-
-Kinoko defaults to using SQLite as the database provider for ease of use. No setup is required in this case.
-
-It is possible to use either CassandraDB or ScyllaDB instead of SQLite, which requires starting the database using the commands below.
-
-```bash
-# Start CassandraDB
-$ docker run -d -p 9042:9042 cassandra:5.0.0
-
-# Alternatively, start ScyllaDB
-$ docker run -d -p 9042:9042 scylladb/scylla --smp 1
-```
-
-You can use [Docker Desktop](https://www.docker.com/products/docker-desktop/) or WSL on Windows.
-
-#### Docker setup
-
-Alternatively, docker can be used to build and start the server using the [docker-compose.yml](docker-compose.yml) file.
-
-```bash
-# Build and start containers
-$ docker compose up -d
-```
-
-
-To start the server with CassandraDB, the [docker-compose.cassandra.yml](docker-compose.cassandra.yml) file can be used as follows:
-
-```bash
-$ docker compose -f docker-compose.cassandra.yml up -d
 ```

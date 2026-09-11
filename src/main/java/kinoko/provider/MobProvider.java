@@ -25,6 +25,10 @@ public final class MobProvider implements WzProvider {
         }
     }
 
+    public static Optional<Map<Integer, MobTemplate>> getMobTemplates() {
+        return Optional.of(mobTemplates);
+    }
+
     public static Optional<MobTemplate> getMobTemplate(int mobId) {
         return Optional.ofNullable(mobTemplates.get(mobId));
     }

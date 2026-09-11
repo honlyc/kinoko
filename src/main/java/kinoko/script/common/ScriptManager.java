@@ -8,6 +8,7 @@ import kinoko.util.Tuple;
 import kinoko.world.field.Field;
 import kinoko.world.field.FieldObject;
 import kinoko.world.field.mob.MobAppearType;
+import kinoko.world.field.mob.MobType;
 import kinoko.world.item.BodyPart;
 import kinoko.world.item.InventoryType;
 import kinoko.world.job.Job;
@@ -16,7 +17,7 @@ import kinoko.world.user.User;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
+import java.util.concurrent.TimeUnit;
 
 public interface ScriptManager {
     // USER METHODS ----------------------------------------------------------------------------------------------------
@@ -54,7 +55,7 @@ public interface ScriptManager {
 
     int getLevel();
 
-    int getJob();
+    Job getJob();
 
     void addExp(int exp);
 
@@ -72,6 +73,10 @@ public interface ScriptManager {
 
     void resetConsumeItemEffect(int itemId);
 
+    void useSummoningSack(int itemId, int x, int y);
+
+    int getRandomMasteryBook(int jobId);
+
 
     // INVENTORY METHODS -----------------------------------------------------------------------------------------------
 
@@ -80,12 +85,16 @@ public interface ScriptManager {
     boolean canAddMoney(int money);
 
     default boolean addItem(int itemId, int quantity) {
-        return addItems(List.of(Tuple.of(itemId, quantity)));
+        return addItems(List.of(Tuple.of(itemId, quantity)), 0); // Default: No Expiry
+    }
+
+    default boolean addItem(int itemId, int quantity, int hours) {
+        return addItems(List.of(Tuple.of(itemId, quantity)), hours); // Overload with Expiry
     }
 
     boolean addItems(List<Tuple<Integer, Integer>> items);
 
-    boolean addItemWithExpiration(int itemId, int expirationInSeconds);
+    boolean addItems(List<Tuple<Integer, Integer>> items, int hours);
 
     default boolean canAddItem(int itemId, int quantity) {
         return canAddItems(List.of(Tuple.of(itemId, quantity)));
@@ -107,6 +116,15 @@ public interface ScriptManager {
 
     default boolean hasItem(int itemId) {
         return hasItem(itemId, 1);
+    }
+
+    default boolean hasItems(List<Tuple<Integer, Integer>> items) {
+        for (var item : items) {
+            if (!hasItem(item.getLeft(), item.getRight())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     boolean hasItem(int itemId, int quantity);
@@ -184,17 +202,33 @@ public interface ScriptManager {
 
     Field getField();
 
+    FieldObject getSource();
+
     int getFieldId();
 
-    FieldObject getSource();
+    void killMob(int templateId);
+
+    default void spawnMob(int templateId, MobAppearType appearType, int x, int y, boolean isLeft, MobType mobType) {
+        spawnMob(templateId, appearType.getValue(), x, y, isLeft, mobType.getValue());
+    }
 
     default void spawnMob(int templateId, MobAppearType appearType, int x, int y, boolean isLeft) {
         spawnMob(templateId, appearType.getValue(), x, y, isLeft);
     }
 
+    default void spawnMobInMap(int templateId, MobAppearType appearType, int x, int y, boolean isLeft, Field customField) {
+        spawnMob(templateId, appearType.getValue(), x, y, isLeft, customField);
+    }
+
+    void spawnMob(int templateId, int summonType, int x, int y, boolean isLeft, int mobType);
+
     void spawnMob(int templateId, int summonType, int x, int y, boolean isLeft);
 
+    void spawnMob(int templateId, int summonType, int x, int y, boolean isLeft, Field customField);
+
     void spawnNpc(int templateId, int x, int y, boolean isFlip, boolean originalField);
+
+    void openShopNPC(int templateId);
 
     void removeNpc(int templateId);
 
@@ -209,11 +243,17 @@ public interface ScriptManager {
 
     // EVENT METHODS ---------------------------------------------------------------------------------------------------
 
-    boolean checkParty(int memberCount, Predicate<User> predicate);
+    void sleep(long delay, TimeUnit timeUnit);
 
-    default boolean checkParty(int memberCount, int levelMin) {
-        return checkParty(memberCount, (user) -> user.getLevel() >= levelMin);
-    }
+    boolean checkParty(int memberCount, int levelMin);
+
+    void addCooldownTimeForParty(EventType eventType, long time);
+
+    String getTimeUntilEventReset(EventType eventType);
+
+    int getEventAmountDone(EventType eventType);
+
+    boolean partyHasCoolDown(EventType eventType, int runsPerDay);
 
     EventState getEventState(EventType eventType);
 
@@ -283,4 +323,8 @@ public interface ScriptManager {
     String askText(String text, String textDefault, int textLengthMin, int textLengthMax, ScriptMessageParam... overrides);
 
     String askBoxText(String text, String textDefault, int textBoxColumns, int textBoxLines, ScriptMessageParam... overrides);
+
+    // UTILS
+
+    int getRandomIntBelow(int number);
 }

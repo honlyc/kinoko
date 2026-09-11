@@ -1,22 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration shutdownHook="disable" packages="kinoko.util">
     <Appenders>
+        <!-- Console Logger -->
         <Console name="ConsoleLogger" target="SYSTEM_OUT">
-            <LoggerLayout/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{36} - %msg%n"/>
         </Console>
+
+        <!-- File Appender for Log.io -->
+        <File name="FileLogger" fileName="logs/kinoko.log" append="true">
+            <PatternLayout>
+                <Pattern>%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{36} - %msg%n</Pattern>
+            </PatternLayout>
+        </File>
+
+        <!-- Logtail -->
+        <!-- Http name="LogtailLogger" url="${env:LOGTAIL_HOST}">
+            <Property name="Authorization">Bearer ${env:LOGTAIL_TOKEN}</Property>
+            <JsonLayout compact="true" eventEol="true"/>
+        </Http -->
     </Appenders>
 
     <Loggers>
         <Logger name="kinoko" level="debug" additivity="false">
             <AppenderRef ref="ConsoleLogger"/>
+            <AppenderRef ref="FileLogger"/>
+<!--            <AppenderRef ref="LogtailLogger" />-->
         </Logger>
 
-        <Logger name="io.netty, com.datastax" level="error">
+        <Logger name="io.netty" level="error">
             <AppenderRef ref="ConsoleLogger"/>
+            <AppenderRef ref="FileLogger"/>
         </Logger>
 
         <Root level="error">
             <AppenderRef ref="ConsoleLogger"/>
+            <AppenderRef ref="FileLogger"/>
         </Root>
     </Loggers>
 </Configuration>

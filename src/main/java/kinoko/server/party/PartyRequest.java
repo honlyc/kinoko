@@ -4,11 +4,14 @@ import kinoko.server.header.CentralHeader;
 import kinoko.server.packet.InPacket;
 import kinoko.server.packet.OutPacket;
 import kinoko.util.Encodable;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Utility class for {@link CentralHeader#PartyRequest}
  */
 public final class PartyRequest implements Encodable {
+    private static final Logger log = LogManager.getLogger(PartyRequest.class);
     private final PartyRequestType requestType;
     private int partyId;
     private int characterId;

@@ -5,8 +5,7 @@ import kinoko.server.field.FieldStorage;
 import kinoko.server.node.ServerExecutor;
 import kinoko.util.Util;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 
@@ -47,7 +46,7 @@ public final class ContiMoveVictoria extends ContiMoveEvent {
     @Override
     public void initialize() {
         // Initialize current state
-        final ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+        final LocalDateTime now = LocalDateTime.now();
         final int minute = now.getMinute() % 15;
         if (minute >= 10 && minute < 14) {
             currentState = EventState.CONTIMOVE_BOARDING;
@@ -57,8 +56,8 @@ public final class ContiMoveVictoria extends ContiMoveEvent {
             currentState = EventState.CONTIMOVE_INSIDE;
         }
         // Schedule event - run every minute
-        final ZonedDateTime nextStateTime = now.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1);
-        eventFuture = ServerExecutor.scheduleServiceAtFixedRate(this::nextState, now.until(nextStateTime, ChronoUnit.MILLIS), 60 * 1000, TimeUnit.MILLISECONDS);
+        final LocalDateTime nextStateTime = now.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1);
+        eventFuture = ServerExecutor.scheduleServiceWithFixedRate(this::nextState, now.until(nextStateTime, ChronoUnit.MILLIS), 60 * 1000, TimeUnit.MILLISECONDS);
     }
 
     @Override

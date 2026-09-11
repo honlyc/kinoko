@@ -31,9 +31,9 @@ public final class GoldenTemple extends ScriptHandler {
         ));
         if (answer == 0) {
             final int dungeon = sm.askMenu("Which temple do you wish to enter? And you know that must enter alone, right?", Map.of(
-                    0, "Monkey Temple 1 (Lv. 15 Wild Monkey",
-                    1, "Monkey Temple 2 (Lv. 21 Mama Monkey",
-                    2, "Monkey Temple 3 (Lv. 20 White Baby Monkey",
+                    0, "Monkey Temple 1 (Lv. 15 Wild Monkey)",
+                    1, "Monkey Temple 2 (Lv. 21 Mama Monkey)",
+                    2, "Monkey Temple 3 (Lv. 20 White Baby Monkey)",
                     3, "Monkey Temple 4 (Lv. 34 White Mama Monkey)"
             ));
             if (!sm.hasItem(PREMIUM_TICKET_ID) && !sm.removeItem(GOLDEN_TICKET_ID, 1)) {

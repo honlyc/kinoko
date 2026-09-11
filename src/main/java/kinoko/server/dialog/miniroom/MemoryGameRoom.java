@@ -62,6 +62,8 @@ public final class MemoryGameRoom extends MiniGameRoom {
                         }
                         case LOSE -> {
                             gameSet(MiniGameResultType.NORMAL, other, user);
+
+
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 package kinoko.database;
 
 import kinoko.database.cassandra.CassandraConnector;
+import kinoko.database.mysql.MysqlConnector;
 import kinoko.database.sqlite.SqliteConnector;
 import kinoko.server.ServerConstants;
 
@@ -35,6 +36,14 @@ public final class DatabaseManager {
         return connector.getMemoAccessor();
     }
 
+    public static FameAccessor fameAccessor() {
+        return connector.getFameAccessor();
+    }
+
+    public static ActiveMachineAccessor activeMachineAccessor() {
+        return connector.getActiveMachineAccessor();
+    }
+
     public static void initialize() {
         switch (ServerConstants.DATABASE_PROVIDER) {
             case "cassandra" -> {
@@ -42,6 +51,9 @@ public final class DatabaseManager {
             }
             case "sqlite" -> {
                 connector = new SqliteConnector();
+            }
+            case "mysql" -> {
+                connector = new MysqlConnector();
             }
             default -> {
                 throw new IllegalArgumentException("Unknown database provider : " + ServerConstants.DATABASE_PROVIDER);

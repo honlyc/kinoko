@@ -25,7 +25,7 @@ public final class TownPortalPool extends FieldObjectPool<TownPortal> {
             return;
         }
         final Optional<User> ownerInField = field.getUserPool().getById(townPortal.getOwner().getCharacterId());
-        final OutPacket outPacket = FieldPacket.townPortalCreated(townPortal, true);
+        final OutPacket outPacket = FieldPacket.townPortalCreated(townPortal.getOwner(), townPortal.getX(), townPortal.getY(), true);
         ownerInField.ifPresent(owner -> owner.write(outPacket));
         field.getUserPool().forEachPartyMember(townPortal.getOwner(), (member) -> {
             member.write(outPacket);

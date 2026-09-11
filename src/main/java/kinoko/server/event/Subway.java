@@ -3,8 +3,7 @@ package kinoko.server.event;
 import kinoko.server.field.FieldStorage;
 import kinoko.server.node.ServerExecutor;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 
@@ -31,7 +30,7 @@ public final class Subway extends Event {
     @Override
     public void initialize() {
         // Initialize current state
-        final ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+        final LocalDateTime now = LocalDateTime.now();
         final int minute = now.getMinute() % 10;
         if (minute >= 5 && minute < 9) {
             currentState = EventState.SUBWAY_BOARDING;
@@ -41,8 +40,8 @@ public final class Subway extends Event {
             currentState = EventState.SUBWAY_INSIDE;
         }
         // Schedule event - run every minute
-        final ZonedDateTime nextStateTime = now.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1);
-        eventFuture = ServerExecutor.scheduleServiceAtFixedRate(this::nextState, now.until(nextStateTime, ChronoUnit.MILLIS), 60 * 1000, TimeUnit.MILLISECONDS);
+        final LocalDateTime nextStateTime = now.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1);
+        eventFuture = ServerExecutor.scheduleServiceWithFixedRate(this::nextState, now.until(nextStateTime, ChronoUnit.MILLIS), 60 * 1000, TimeUnit.MILLISECONDS);
     }
 
     @Override

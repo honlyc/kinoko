@@ -8,23 +8,29 @@ import kinoko.script.party.KerningPQ;
 import kinoko.server.node.ServerExecutor;
 import kinoko.util.BitFlag;
 import kinoko.util.Rect;
+import kinoko.world.BossConstants;
 import kinoko.world.GameConstants;
 import kinoko.world.field.mob.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Consumer;
 
 public final class MobPool extends FieldObjectPool<Mob> {
+    private static final Logger log = LogManager.getLogger(MobPool.class);
     private final List<MobSpawnPoint> mobSpawnPoints;
     private final int mobCapacityMin;
     private final int mobCapacityMax;
+    private int mobSubCount;
 
     public MobPool(Field field) {
         super(field);
         this.mobSpawnPoints = initializeMobSpawnPoints(field);
         this.mobCapacityMin = initializeMobCapacity(field);
         this.mobCapacityMax = mobCapacityMin * 2;
+        this.mobSubCount = -1;
     }
 
     public Optional<Mob> getByTemplateId(int templateId) {
@@ -39,6 +45,15 @@ public final class MobPool extends FieldObjectPool<Mob> {
         if (mob.getSummonType() != MobAppearType.SUSPENDED.getValue()) {
             mob.setSummonType(MobAppearType.NORMAL.getValue());
         }
+
+        if (mob.getMobType() == MobType.SUB_MOB.getValue()) {
+            if (mobSubCount < 0) {
+                mobSubCount = 1;
+            } else {
+                mobSubCount += 1;
+            }
+        }
+
         field.getUserPool().assignController(mob);
     }
 
@@ -46,6 +61,19 @@ public final class MobPool extends FieldObjectPool<Mob> {
         if (!removeObject(mob)) {
             return false;
         }
+        // Handle SubMobs
+        if (mob.getMobType() == MobType.SUB_MOB.getValue()) {
+            this.mobSubCount -= 1;
+        }
+
+        if (this.mobSubCount == 0) {
+            for (Mob fieldMob : getObjects()) {
+                if (fieldMob.getMobType() == MobType.PARENT_MOB.getValue()) {
+                    field.broadcastPacket(MobPacket.mobSuspendReset(fieldMob, true));
+                }
+            }
+        }
+
         // Send MobLeaveField after processing attack
         ServerExecutor.submit(field, () -> {
             field.broadcastPacket(MobPacket.mobLeaveField(mob, leaveType));
@@ -63,45 +91,59 @@ public final class MobPool extends FieldObjectPool<Mob> {
                 field.broadcastPacket(FieldEffectPacket.screen("quest/party/clear"));
                 field.broadcastPacket(FieldEffectPacket.sound("Party1/Clear"));
             }
+            // Handle BalrogPQ
+            case BossConstants.BALROG_NORMAL_BATTLE_MAP -> {
+                switch (mob.getTemplateId()) {
+                    case 8830009 -> {
+                        for (Mob fieldMob : getObjects()) {
+                            if (fieldMob.getTemplateId() == 8830013) {
+                                field.broadcastPacket(MobPacket.mobSuspendReset(fieldMob, true));
+                            }
+                        }
+                    }
+                }
+            }
         }
         return true;
     }
 
     public void updateMobs(Instant now) {
         for (Mob mob : getObjects()) {
-            // Handle burn
-            final Set<BurnedInfo> resetBurnedInfos = new HashSet<>();
-            final var iter = mob.getMobStat().getBurnedInfos().values().iterator();
-            while (iter.hasNext()) {
-                final BurnedInfo burnedInfo = iter.next();
-                if (now.isBefore(burnedInfo.getNextUpdate())) {
-                    continue;
+            try (var lockedMob = mob.acquire()) {
+                // Handle burn
+                final Set<BurnedInfo> resetBurnedInfos = new HashSet<>();
+                final var iter = mob.getMobStat().getBurnedInfos().values().iterator();
+                while (iter.hasNext()) {
+                    final BurnedInfo burnedInfo = iter.next();
+                    if (now.isBefore(burnedInfo.getNextUpdate())) {
+                        continue;
+                    }
+                    mob.burn(burnedInfo.getCharacterId(), burnedInfo.getDamage());
+                    if (burnedInfo.getDotCount() > 1) {
+                        burnedInfo.setDotCount(burnedInfo.getDotCount() - 1);
+                        burnedInfo.setLastUpdate(now);
+                    } else {
+                        iter.remove();
+                        resetBurnedInfos.add(burnedInfo);
+                    }
                 }
-                mob.burn(burnedInfo.getCharacterId(), burnedInfo.getDamage());
-                if (burnedInfo.getDotCount() > 1) {
-                    burnedInfo.setDotCount(burnedInfo.getDotCount() - 1);
-                    burnedInfo.setLastUpdate(now);
-                } else {
-                    iter.remove();
-                    resetBurnedInfos.add(burnedInfo);
+                // Expire temporary stat
+                final Set<MobTemporaryStat> resetStats = mob.getMobStat().expireTemporaryStat(now);
+                if (!resetBurnedInfos.isEmpty() && mob.getMobStat().getBurnedInfos().isEmpty()) {
+                    mob.getMobStat().getTemporaryStats().remove(MobTemporaryStat.Burned);
+                    resetStats.add(MobTemporaryStat.Burned);
                 }
+                final BitFlag<MobTemporaryStat> flag = BitFlag.from(resetStats, MobTemporaryStat.FLAG_SIZE);
+                if (!flag.isEmpty()) {
+                    field.broadcastPacket(MobPacket.mobStatReset(mob, flag, resetBurnedInfos));
+                }
+                // Try recovering hp/mp
+                mob.recovery(now);
+                // Try removing mob (removeAfter)
+                mob.remove(now);
+                // Try dropping item (dropItemPeriod)
+                mob.dropItem(now);
             }
-            // Expire temporary stat
-            final Set<MobTemporaryStat> resetStats = mob.getMobStat().expireTemporaryStat(now);
-            if (!resetBurnedInfos.isEmpty() && mob.getMobStat().getBurnedInfos().isEmpty()) {
-                mob.getMobStat().getTemporaryStats().remove(MobTemporaryStat.Burned);
-                resetStats.add(MobTemporaryStat.Burned);
-            }
-            final BitFlag<MobTemporaryStat> flag = BitFlag.from(resetStats, MobTemporaryStat.FLAG_SIZE);
-            if (!flag.isEmpty()) {
-                field.broadcastPacket(MobPacket.mobStatReset(mob, flag, resetBurnedInfos));
-            }
-            // Try recovering hp/mp
-            mob.recovery(now);
-            // Try removing mob (removeAfter)
-            mob.remove(now);
-            // Try dropping item (dropItemPeriod)
-            mob.dropItem(now);
         }
     }
 

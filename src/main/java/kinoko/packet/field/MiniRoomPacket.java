@@ -256,7 +256,6 @@ public final class MiniRoomPacket {
         }
     }
 
-
     public static class PlayerShop {
         public static OutPacket enterResult(PersonalShop personalShop, User me) {
             final OutPacket outPacket = MiniRoomPacket.enterResult(personalShop, me);

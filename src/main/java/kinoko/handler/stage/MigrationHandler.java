@@ -15,8 +15,8 @@ import kinoko.packet.world.MemoPacket;
 import kinoko.packet.world.WvsContext;
 import kinoko.provider.MapProvider;
 import kinoko.provider.map.PortalInfo;
+import kinoko.script.common.ScriptError;
 import kinoko.server.cashshop.Gift;
-import kinoko.server.field.InstanceFieldStorage;
 import kinoko.server.guild.GuildRequest;
 import kinoko.server.header.InHeader;
 import kinoko.server.memo.Memo;
@@ -29,10 +29,12 @@ import kinoko.server.node.ServerExecutor;
 import kinoko.server.packet.InPacket;
 import kinoko.server.party.PartyRequest;
 import kinoko.util.Tuple;
+import kinoko.util.Util;
 import kinoko.world.GameConstants;
 import kinoko.world.field.Field;
 import kinoko.world.item.*;
 import kinoko.world.job.JobConstants;
+import kinoko.world.skill.SkillRecord;
 import kinoko.world.user.CharacterData;
 import kinoko.world.user.*;
 import kinoko.world.user.data.ConfigManager;
@@ -45,6 +47,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -122,6 +125,9 @@ public final class MigrationHandler {
             channelServerNode.addClient(c);
             channelServerNode.notifyUserConnect(user);
 
+            DatabaseManager.accountAccessor().setLoggedStatus(account, true);
+            DatabaseManager.activeMachineAccessor().addNewInstance(account.getId(), Util.readableByteArray(machineId), Util.readableByteArray(clientKey));
+
             // Initialize pets
             final CharacterStat cs = user.getCharacterStat();
             final long[] pets = new long[]{
@@ -137,12 +143,15 @@ public final class MigrationHandler {
                     // Item not found
                     continue;
                 }
+
                 final Item item = itemEntryResult.get().getRight();
-                if (item.getItemType() != ItemType.PET || item.getDateExpire().isBefore(Instant.now())) {
+                if (item.getItemType() != ItemType.PET ||
+                        item.getDateExpire() == null ||
+                        item.getDateExpire().isBefore(Instant.now())) {
                     // Invalid pet or expired
                     continue;
                 }
-                // Create pet and assign to user
+
                 final Pet pet = Pet.from(user, item);
                 user.addPet(pet, true);
             }
@@ -151,6 +160,10 @@ public final class MigrationHandler {
             if (JobConstants.isDragonJob(user.getJob())) {
                 user.setDragon(new Dragon(user.getJob()));
             }
+
+            List<Tuple<Instant, Integer>> lastMonthFame = DatabaseManager.fameAccessor().lastMonthFames(user.getCharacterId());
+            user.setLastMonthFame(lastMonthFame);
+            user.setLastFameTime(!lastMonthFame.isEmpty() ? lastMonthFame.getFirst().getLeft() : Instant.MIN);
 
             // Initialize user data from MigrationInfo
             user.getSecondaryStat().getTemporaryStats().putAll(migrationInfo.getTemporaryStats());
@@ -176,6 +189,25 @@ public final class MigrationHandler {
                 log.error("Could not resolve portal : {} on field ID : {}", portalId, targetField.getFieldId());
                 return targetField.getPortalById(0).orElse(PortalInfo.EMPTY);
             });
+
+            // Special handling for Blessing of the Fairy
+            List<AvatarData> characters = DatabaseManager.characterAccessor().getAvatarDataByAccountId(user.getAccountId());
+
+            AvatarData highestLevelCharacter = characters.stream()
+                    .filter(chr -> !chr.getCharacterName().equals(user.getCharacterName()))
+                    .max(Comparator.comparingInt(AvatarData::getLevel))
+                    .orElse(null);
+
+            if (highestLevelCharacter != null) {
+                Optional<SkillRecord> skillRecord = user.getSkillManager().getSkillRecords().stream()
+                        .filter(sr -> sr.getSkillId() % 10000 == 12)
+                        .findFirst();
+
+                skillRecord.ifPresent(sr -> {
+                    sr.setSkillLevel(Math.floorDivExact(highestLevelCharacter.getLevel(), 10));
+                    user.getCharacterData().setLinkedCharacter(highestLevelCharacter.getCharacterName());
+                });
+            }
 
             // Add user to field
             ServerExecutor.submit(targetField, () -> {
@@ -265,7 +297,7 @@ public final class MigrationHandler {
                     if (user.getSecondaryStat().hasOption(CharacterTemporaryStat.SoulStone)) {
                         // user.resetTemporaryStat(Set.of(CharacterTemporaryStat.SoulStone)); - SecondaryStat cleared on revive
                         user.write(UserLocal.effect(Effect.soulStoneUse())); // You have revived on the current map through the effect of the Spirit Stone.
-                        handleRevive(user, currentField, true);
+                        handleRevive(user, true, false);
                         return;
                     } else if (user.getInventoryManager().hasItem(ItemConstants.WHEEL_OF_DESTINY, 1)) {
                         if (!currentField.isUpgradeTombUsable()) {
@@ -279,12 +311,12 @@ public final class MigrationHandler {
                         user.write(WvsContext.inventoryOperation(removeResult.get(), false));
                         final int remain = user.getInventoryManager().getItemCount(ItemConstants.WHEEL_OF_DESTINY);
                         user.write(UserLocal.effect(Effect.upgradeTombItemUse(remain))); // You have used 1 Wheel of Destiny in order to revive at the current map. (%d left)
-                        handleRevive(user, currentField, true);
+                        handleRevive(user, true, false);
                         return;
                     }
                 }
                 // Normal revive
-                handleRevive(user, currentField, false);
+                handleRevive(user, false, user.getInventoryManager().hasItem(5130000, 1));
                 return;
             }
             // Transfer field by client request : ReservedEffect, CField::OBSTACLE, /m <map ID> - TODO: disallow /m command for non-GM
@@ -309,7 +341,6 @@ public final class MigrationHandler {
     public static void handleUserTransferChannelRequest(User user, InPacket inPacket) {
         final byte channelId = inPacket.decodeByte();
         inPacket.decodeInt(); // update_time
-
         handleTransferChannel(user, user.getAccount(), channelId);
     }
 
@@ -330,6 +361,21 @@ public final class MigrationHandler {
         user.write(CashShopPacket.loadLockerDone(account));
         user.write(CashShopPacket.loadWishDone(account.getWishlist()));
         user.write(CashShopPacket.queryCashResult(account));
+    }
+
+    @Handler(InHeader.UserMigrateToITCRequest)
+    public static void handleUserMigrateToITCRequest(User user, InPacket inPacket) {
+        final Field targetField;
+        final Optional<Field> fieldResult = user.getConnectedServer().getFieldById(919191919);
+        if (fieldResult.isEmpty()) {
+            throw new ScriptError("Could not resolve field ID : %d", 919191919);
+        }
+        targetField = fieldResult.get();
+        final Optional<PortalInfo> portalResult = targetField.getRandomStartPoint();
+        if (portalResult.isEmpty()) {
+            throw new ScriptError("Could not resolve start point portal for field ID : %d", targetField.getFieldId());
+        }
+        user.warp(targetField, portalResult.get(), false, false);
     }
 
     private static boolean isWhitelistedTransferField(int currentFieldId, int targetFieldId) {
@@ -435,21 +481,23 @@ public final class MigrationHandler {
         user.warp(targetField, targetPortalResult.get(), false, isRevive);
     }
 
-    private static void handleRevive(User user, Field field, boolean premium) {
+    private static void handleRevive(User user, boolean premium, boolean safetyCharm) {
         user.getSecondaryStat().clear();
         user.getSummoned().clear();
         user.updatePassiveSkillData();
         user.validateStat();
+        user.setHp(50);
         if (premium) {
             user.setHp(user.getMaxHp());
             user.setMp(user.getMaxMp());
-            handleTransferField(user, field.getFieldId(), GameConstants.DEFAULT_PORTAL_NAME, true, false);
+            handleTransferField(user, user.getField().getFieldId(), GameConstants.DEFAULT_PORTAL_NAME, true, false);
+        } else if(safetyCharm) {
+            user.setHp(user.getMaxHp() / 3);
+            user.setMp(user.getMaxMp() / 3);
+            handleTransferField(user, user.getField().getFieldId(), GameConstants.DEFAULT_PORTAL_NAME, true, true);
         } else {
-            final int returnMap = field.getFieldStorage() instanceof InstanceFieldStorage instanceFieldStorage ?
-                    instanceFieldStorage.getInstance().getReturnMap() :
-                    field.getReturnMap();
             user.setHp(50);
-            handleTransferField(user, returnMap, GameConstants.DEFAULT_PORTAL_NAME, true, true);
+            handleTransferField(user, user.getField().getReturnMap(), GameConstants.DEFAULT_PORTAL_NAME, true, true);
         }
     }
 

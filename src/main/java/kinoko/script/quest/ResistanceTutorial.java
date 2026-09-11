@@ -94,7 +94,7 @@ public final class ResistanceTutorial extends ScriptHandler {
             sm.sayNext("Eep! You found me.");
             sm.sayBoth("Eh, I wanted to go further into the wagon, but my head wouldn't fit.");
             sm.sayBoth("Did you find Ulrika and Von yet? Von is really, really good at hiding.\r\n\r\n\r\n\r\n#fUI/UIWindow2.img/QuestIcon/8/0# 5 exp");
-            user.addExp(5);
+            user.addQuestExp(5);
             sm.addQRValue(QuestRecordType.ResistanceHideSeek, "exp1=1");
         } else {
             sm.sayNext("Did you find Ulrika and Von yet? Von is really, really good at hiding.");
@@ -108,7 +108,7 @@ public final class ResistanceTutorial extends ScriptHandler {
         final User user = sm.getUser();
 
         if (!sm.hasQRValue(QuestRecordType.ResistanceHideSeek, "exp2=1")) {
-            user.addExp(5);
+            user.addQuestExp(5);
             sm.addQRValue(QuestRecordType.ResistanceHideSeek, "exp2=1");
             sm.sayNext("Haha, you found me. Guess I should've found a better hiding spot.");
             sm.sayBoth("Have you found Jun and Von yet? Von's going to be pretty hard to find. Better keep your eyes open.\r\n\r\n\r\n\r\n#fUI/UIWindow2.img/QuestIcon/8/0# 5 exp");
@@ -129,7 +129,7 @@ public final class ResistanceTutorial extends ScriptHandler {
         // Cutie (2159015)
         //   Dangerous Hide-and-Seek : Neglected Rocky Mountain (931000001)
         if (!sm.hasQRValue(QuestRecordType.ResistanceHideSeek, "exp3=1")) {
-            sm.addExp(3);
+            sm.getUser().addQuestExp(3);
             sm.addQRValue(QuestRecordType.ResistanceHideSeek, "exp3=1");
             sm.sayNext("Aw shucks. You found me. Wow, you're really good at this game!\r\n\r\n\r\n\r\n#fUI/UIWindow2.img/QuestIcon/8/0# 3 exp");
         } else {
@@ -144,7 +144,7 @@ public final class ResistanceTutorial extends ScriptHandler {
         final User user = sm.getUser();
 
         if (!sm.hasQRValue(QuestRecordType.ResistanceHideSeek, "exp4=1")) {
-            user.addExp(3);
+            user.addQuestExp(3);
             sm.addQRValue(QuestRecordType.ResistanceHideSeek, "exp4=1");
             sm.sayNext("D'oh! You found me. But I'm tiny! Are you a professional at this game or something?\r\n\r\n\r\n\r\n#fUI/UIWindow2.img/QuestIcon/8/0# 3 exp");
         } else {
@@ -158,7 +158,7 @@ public final class ResistanceTutorial extends ScriptHandler {
         //   Dangerous Hide-and-Seek : Neglected Rocky Mountain (931000001)
         if (sm.hasQRValue(QuestRecordType.ResistanceHideSeek, "exp1=1") && sm.hasQRValue(QuestRecordType.ResistanceHideSeek, "exp2=1") && sm.hasQRValue(QuestRecordType.ResistanceHideSeek, "exp3=1") && sm.hasQRValue(QuestRecordType.ResistanceHideSeek, "exp4=1")) {
             if (sm.askYesNo("#b(What a suspicious hole. Maybe Von is hiding inside. Peek inside?)#k")) {
-                sm.addExp(35);
+                sm.getUser().addQuestExp(35);
                 sm.playPortalSE();
                 sm.warp(MAP_LAB1);
             } else {
@@ -258,32 +258,36 @@ public final class ResistanceTutorial extends ScriptHandler {
         //   Dangerous Hide-and-Seek : Suspicious Laboratory (931000011)
         //   Dangerous Hide-and-Seek : Neglected Rocky Mountain (931000020)
         //   Dangerous Hide-and-Seek : Neglected Rocky Mountain (931000021)
-        if (sm.getFieldId() != MAP_ESCAPE1) {
-            return;
+        if (sm.getFieldId() == MAP_ESCAPE1) {
+            User user = sm.getUser();
+
+            if (!user.hasDialog()) { //Try at fixing ScriptError spam due to user.addHP()
+
+                sm.setSpeakerId(SCHILLER);
+                sm.sayNext("Little rats. I say, how DARE you try to escape this place?");
+                sm.sayBoth("Shoot, we were spotted!", ScriptMessageParam.PLAYER_AS_SPEAKER);
+
+                sm.sayBoth("Now, now, children. Don't make this harder than it needs to be. Just walk towards me, nice and easy... Wait, you're not one of the test subjects. You're one of the townspeople, aren't you?");
+
+                sm.sayBoth("That's right. I'm a resident of Edelstein, not a test subject. You can't boss ME around.", ScriptMessageParam.PLAYER_AS_SPEAKER);
+
+                sm.sayBoth("Oh my, oh my. I told them to make sure the townspeople kept their kids away from the mines... Alas, it's too late now. I can't allow you to tell anyone about this laboratory, so I guess you'll just have to stay here and...help with the experiments. *snicker*");
+
+                sm.sayBoth("Hmph. Big words, but let's see if you can catch me first.", ScriptMessageParam.PLAYER_AS_SPEAKER);
+
+                sm.sayBoth("Why, you insolent, little-- Ahem, ahem, ahem. Your words don't matter. Time for me to pull out the big guns. I do hope you're ready. If not, you will suffer.");
+
+                user.addHp(-user.getHp() / 2);
+                sm.sayBoth("#b(Oh no! Schiller's attack HALVED your HP! He's tougher than you anticipated.)#k", ScriptMessageParam.PLAYER_AS_SPEAKER);
+
+                sm.sayBoth("I say, got any more big words, kiddo? I'll make sure Gelimer performs some especially atrocious experiments on you. But I'll be nice if you come with me quiet-like.");
+
+                sm.setSpeakerId(J);
+                sm.sayBoth("Hold it right there!");
+
+                sm.warp(MAP_ESCAPE2);
+            }
         }
-        sm.setSpeakerId(SCHILLER);
-        sm.sayNext("Little rats. I say, how DARE you try to escape this place?");
-        sm.sayBoth("Shoot, we were spotted!", ScriptMessageParam.PLAYER_AS_SPEAKER);
-
-        sm.sayBoth("Now, now, children. Don't make this harder than it needs to be. Just walk towards me, nice and easy... Wait, you're not one of the test subjects. You're one of the townspeople, aren't you?");
-
-        sm.sayBoth("That's right. I'm a resident of Edelstein, not a test subject. You can't boss ME around.", ScriptMessageParam.PLAYER_AS_SPEAKER);
-
-        sm.sayBoth("Oh my, oh my. I told them to make sure the townspeople kept their kids away from the mines... Alas, it's too late now. I can't allow you to tell anyone about this laboratory, so I guess you'll just have to stay here and...help with the experiments. *snicker*");
-
-        sm.sayBoth("Hmph. Big words, but let's see if you can catch me first.", ScriptMessageParam.PLAYER_AS_SPEAKER);
-
-        sm.sayBoth("Why, you insolent, little-- Ahem, ahem, ahem. Your words don't matter. Time for me to pull out the big guns. I do hope you're ready. If not, you will suffer.");
-
-        sm.getUser().addHp(-sm.getUser().getHp() / 2);
-        sm.sayBoth("#b(Oh no! Schiller's attack HALVED your HP! He's tougher than you anticipated.)#k", ScriptMessageParam.PLAYER_AS_SPEAKER);
-
-        sm.sayBoth("I say, got any more big words, kiddo? I'll make sure Gelimer performs some especially atrocious experiments on you. But I'll be nice if you come with me quiet-like.");
-
-        sm.setSpeakerId(J);
-        sm.sayBoth("Hold it right there!");
-
-        sm.warp(MAP_ESCAPE2);
     }
 
     @Script("talk2159010")

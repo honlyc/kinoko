@@ -27,8 +27,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -87,7 +86,7 @@ public final class Field {
         this.townPortalPool = new TownPortalPool(this);
         this.affectedAreaPool = new AffectedAreaPool(this);
         // Initialize field updates
-        this.fieldEventFuture = ServerExecutor.scheduleAtFixedRate(this, this::update, ServerConfig.FIELD_TICK_INTERVAL, ServerConfig.FIELD_TICK_INTERVAL, TimeUnit.MILLISECONDS);
+        this.fieldEventFuture = ServerExecutor.scheduleWithFixedDelay(this, this::update, ServerConfig.FIELD_TICK_INTERVAL, ServerConfig.FIELD_TICK_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     public int getExecutorIndex() {
@@ -365,7 +364,7 @@ public final class Field {
         }
         // Handle clock
         if (mapInfo.isClock()) {
-            final ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+            final LocalDateTime now = LocalDateTime.now();
             user.write(FieldPacket.clock(now.getHour(), now.getMinute(), now.getSecond()));
         }
         // Handle field specific data

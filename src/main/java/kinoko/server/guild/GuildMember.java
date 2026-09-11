@@ -1,5 +1,7 @@
 package kinoko.server.guild;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import kinoko.server.packet.OutPacket;
 import kinoko.server.user.RemoteUser;
 import kinoko.util.Encodable;
@@ -13,7 +15,16 @@ public final class GuildMember implements Encodable {
     private GuildRank guildRank;
     private GuildRank allianceRank;
 
-    public GuildMember(int characterId, String characterName, int job, int level, boolean online, GuildRank guildRank, GuildRank allianceRank) {
+    @JsonCreator
+    public GuildMember(
+            @JsonProperty("characterId") int characterId,
+            @JsonProperty("characterName") String characterName,
+            @JsonProperty("job") int job,
+            @JsonProperty("level") int level,
+            @JsonProperty("online") boolean online,
+            @JsonProperty("guildRank") GuildRank guildRank,
+            @JsonProperty("allianceRank") GuildRank allianceRank
+    ) {
         this.characterId = characterId;
         this.characterName = characterName;
         this.job = job;

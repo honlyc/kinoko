@@ -2,6 +2,7 @@ package kinoko.world.field.summoned;
 
 import kinoko.provider.map.Foothold;
 import kinoko.provider.skill.SkillInfo;
+import kinoko.util.Lockable;
 import kinoko.util.Rect;
 import kinoko.world.field.Field;
 import kinoko.world.field.life.Life;
@@ -9,8 +10,11 @@ import kinoko.world.user.AvatarLook;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-public final class Summoned extends Life {
+public final class Summoned extends Life implements Lockable<Summoned> {
+    private final Lock lock = new ReentrantLock();
     private final int skillId;
     private final int skillLevel;
     private final SummonedMoveAbility moveAbility;
@@ -120,6 +124,16 @@ public final class Summoned extends Life {
                 ", hp=" + hp +
                 ", teslaCoilState=" + teslaCoilState +
                 '}';
+    }
+
+    @Override
+    public void lock() {
+        lock.lock();
+    }
+
+    @Override
+    public void unlock() {
+        lock.unlock();
     }
 
     public static Summoned from(SkillInfo si, int slv, SummonedMoveAbility moveAbility, SummonedAssistType assistType) {

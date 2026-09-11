@@ -21,6 +21,7 @@ import kinoko.world.job.JobConstants;
 import kinoko.world.job.explorer.Magician;
 import kinoko.world.job.explorer.Thief;
 import kinoko.world.job.explorer.Warrior;
+import kinoko.world.job.gm.Admin;
 import kinoko.world.job.legend.Evan;
 import kinoko.world.job.resistance.BattleMage;
 import kinoko.world.job.resistance.Citizen;
@@ -38,7 +39,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 public final class SkillHandler {
     private static final Logger log = LogManager.getLogger(SkillHandler.class);
@@ -82,7 +86,7 @@ public final class SkillHandler {
         if (SkillConstants.isPartySkill(skill.skillId) && inPacket.getRemaining() > 2) {
             // CUserLocal::SendSkillUseRequest
             skill.affectedMemberBitMap = inPacket.decodeByte();
-            if (skill.skillId == Magician.DISPEL) {
+            if (skill.skillId == Magician.DISPEL || skill.skillId == Admin.HEAL_DISPEL) {
                 inPacket.decodeShort(); // tDelay
             }
         }
@@ -102,9 +106,7 @@ public final class SkillHandler {
             // CUserLocal::TryDoingMonsterMagnet || CUserLocal::DoActiveSkill_SummonMonster || CUserLocal::DoActiveSkill_Summon
             skill.left = inPacket.decodeBoolean(); // nMoveAction & 1
         }
-        if (inPacket.getRemaining() == 2) {
-            skill.delay = inPacket.decodeShort();
-        }
+        // ignore tDelay
 
         // Check skill root
         final int skillRoot = SkillConstants.getSkillRoot(skill.skillId);
@@ -246,6 +248,23 @@ public final class SkillHandler {
         Evan.handleDragonFuryEffect(user);
     }
 
+    @Handler(InHeader.UserTemporaryStatUpdateRequest)
+    public static void handleUserTemporaryStatUpdateRequest(User user, InPacket inPacket) {
+        log.debug("Should reset CTS stats");
+//        if (curTime - lastStatResetRequestTime < 500) {
+//            return;
+//        }
+//        getCurrentStats().forEach((key, value) -> {
+//            if (RESET_BY_TIME_CTS.contains(key)) {
+//                Option o = value.get(0);
+//                if (o.tOption != 0 && curTime - o.tStart >= o.tOption) {
+//                    removeStat(key, true);
+//                }
+//            }
+//        });
+//        this.lastStatResetRequestTime = curTime;
+    }
+
     @Handler(InHeader.UserThrowGrenade)
     public static void handleUserThrowGrenade(User user, InPacket inPacket) {
         final Skill skill = new Skill();
@@ -256,7 +275,7 @@ public final class SkillHandler {
         skill.skillId = inPacket.decodeInt();
         skill.slv = inPacket.decodeInt();
 
-        if (skill.skillId != Thief.FLASHBANG && skill.skillId != Thief.MONSTER_BOMB) {
+        if (skill.skillId != Thief.MONSTER_BOMB) {
             handleSkill(user, skill);
         }
         user.getField().broadcastPacket(UserRemote.throwGrenade(user, skill), user);
@@ -276,12 +295,6 @@ public final class SkillHandler {
     }
 
     private static void handleSkill(User user, Skill skill) {
-        if (skill.skillId == WildHunter.JAGUAR_OSHI_DIGESTED && user.getHp() <= 0) {
-            log.error("Tried to use skill {} while dead", skill.skillId);
-            user.dispose();
-            return;
-        }
-
         // Resolve skill info
         final Optional<SkillInfo> skillInfoResult = SkillProvider.getSkillInfoById(skill.skillId);
         if (skillInfoResult.isEmpty()) {
@@ -297,12 +310,12 @@ public final class SkillHandler {
         }
         final int hpCon = si.getHpCon(user, skill.slv, 0);
         if (user.getHp() <= hpCon) {
-            log.error("Tried to use skill {} without enough hp, current : {}, required : {}", skill.skillId, user.getHp(), hpCon);
+            log.warn("Tried to use skill {} without enough hp, current : {}, required : {}", skill.skillId, user.getHp(), hpCon);
             return;
         }
         final int mpCon = si.getMpCon(user, skill.slv);
         if (user.getMp() < mpCon) {
-            log.error("Tried to use skill {} without enough mp, current : {}, required : {}", skill.skillId, user.getMp(), mpCon);
+            log.warn("Tried to use skill {} without enough mp, current : {}, required : {}", skill.skillId, user.getMp(), mpCon);
             return;
         }
         final int comboCon = SkillConstants.getRequiredComboCount(skill.skillId);
@@ -324,31 +337,35 @@ public final class SkillHandler {
             }
             user.write(WvsContext.inventoryOperation(removeResult.get(), false));
         }
-        if (skill.spiritJavelinItemId != 0) {
-            if (!ItemConstants.isJavelinItem(skill.spiritJavelinItemId)) {
-                log.error("Tried to use spirit javelin skill with invalid item id : {}", skill.spiritJavelinItemId);
+        final int bulletCon = si.getBulletCon(skill.slv);
+        if (bulletCon > 0) {
+            // Resolve bullet item
+            final Item weaponItem = user.getInventoryManager().getEquipped().getItem(BodyPart.WEAPON.getValue());
+            if (weaponItem == null) {
+                log.error("Tried to use skill {} without a weapon", skill.skillId);
                 return;
             }
-            final List<InventoryOperation> inventoryOperations = new ArrayList<>();
-            int bulletCon = si.getBulletCon(skill.slv);
-            for (var entry : user.getInventoryManager().getConsumeInventory().getItems().entrySet()) {
-                final Item bulletItem = entry.getValue();
-                if (bulletItem.getItemId() != skill.spiritJavelinItemId) {
-                    continue;
-                }
-                final int newQuantity = Math.max(bulletItem.getQuantity() - bulletCon, 0);
-                inventoryOperations.add(InventoryOperation.itemNumber(InventoryType.CONSUME, entry.getKey(), newQuantity));
-                bulletCon -= bulletItem.getQuantity();
-                if (bulletCon <= 0) {
-                    break;
-                }
-            }
-            if (bulletCon > 0) {
-                log.error("Tried to use spirit javelin skill {} without enough bullets", skill.skillId);
+            final Optional<Map.Entry<Integer, Item>> bulletEntryResult = user.getInventoryManager().getConsumeInventory().getItems().entrySet().stream()
+                    .filter((entry) -> {
+                        final Item bulletItem = entry.getValue();
+                        if (!ItemConstants.isCorrectBulletItem(weaponItem.getItemId(), bulletItem.getItemId())) {
+                            return false;
+                        }
+                        final Optional<ItemInfo> itemInfoResult = ItemProvider.getItemInfo(bulletItem.getItemId());
+                        if (itemInfoResult.isEmpty() || itemInfoResult.get().getReqLevel() > user.getLevel()) {
+                            return false;
+                        }
+                        return bulletItem.getQuantity() >= bulletCon;
+                    }).findFirst();
+            if (bulletEntryResult.isEmpty()) {
+                log.error("Tried to use skill {} without enough bullets", skill.skillId);
                 return;
             }
-            user.getInventoryManager().applyInventoryOperations(inventoryOperations);
-            user.write(WvsContext.inventoryOperation(inventoryOperations, false));
+            final int position = bulletEntryResult.get().getKey();
+            final Item bulletItem = bulletEntryResult.get().getValue();
+            // Consume bullets
+            bulletItem.setQuantity((short) (bulletItem.getQuantity() - bulletCon));
+            user.write(WvsContext.inventoryOperation(InventoryOperation.itemNumber(InventoryType.CONSUME, position, bulletItem.getQuantity()), false));
         }
 
         // Consume hp/mp
@@ -369,7 +386,7 @@ public final class SkillHandler {
         final Field field = user.getField();
         field.broadcastPacket(UserRemote.effect(user, Effect.skillUse(skill, user.getLevel())), user);
         skill.forEachAffectedMember(user, field, (member) -> {
-            SkillProcessor.processSkill(member, skill);
+            SkillProcessor.processSkill(user, skill);
             member.write(UserLocal.effect(Effect.skillAffected(skill.skillId, skill.slv)));
             field.broadcastPacket(UserRemote.effect(member, Effect.skillAffected(skill.skillId, skill.slv)), member);
         });

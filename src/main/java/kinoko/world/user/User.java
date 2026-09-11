@@ -1,5 +1,6 @@
 package kinoko.world.user;
 
+import kinoko.database.DatabaseManager;
 import kinoko.handler.user.FriendHandler;
 import kinoko.packet.stage.StagePacket;
 import kinoko.packet.user.PetPacket;
@@ -17,6 +18,7 @@ import kinoko.provider.skill.SkillStat;
 import kinoko.server.dialog.Dialog;
 import kinoko.server.dialog.ScriptDialog;
 import kinoko.server.dialog.miniroom.MiniRoom;
+import kinoko.server.event.EventType;
 import kinoko.server.guild.GuildRank;
 import kinoko.server.node.ChannelServerNode;
 import kinoko.server.node.Client;
@@ -24,7 +26,10 @@ import kinoko.server.node.ServerExecutor;
 import kinoko.server.packet.OutPacket;
 import kinoko.server.party.PartyRequest;
 import kinoko.util.BitFlag;
+import kinoko.util.Lockable;
+import kinoko.util.Tuple;
 import kinoko.world.GameConstants;
+import kinoko.world.autoban.AutoBanManager;
 import kinoko.world.field.Field;
 import kinoko.world.field.OpenGate;
 import kinoko.world.field.TownPortal;
@@ -33,7 +38,9 @@ import kinoko.world.field.summoned.Summoned;
 import kinoko.world.field.summoned.SummonedLeaveType;
 import kinoko.world.item.InventoryManager;
 import kinoko.world.item.Item;
+import kinoko.world.job.Job;
 import kinoko.world.quest.QuestManager;
+import kinoko.world.skill.FameConstants;
 import kinoko.world.skill.PassiveSkillData;
 import kinoko.world.skill.SkillConstants;
 import kinoko.world.skill.SkillManager;
@@ -45,15 +52,23 @@ import kinoko.world.user.effect.Effect;
 import kinoko.world.user.friend.Friend;
 import kinoko.world.user.friend.FriendStatus;
 import kinoko.world.user.stat.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
-public final class User extends Life {
+public final class User extends Life implements Lockable<User> {
+    private static final Logger log = LoggerFactory.getLogger(User.class);
+    private final ReentrantLock lock = new ReentrantLock();
     private final Client client;
     private final CharacterData characterData;
 
@@ -72,6 +87,7 @@ public final class User extends Life {
     private PartyInfo partyInfo;
     private GuildInfo guildInfo;
 
+    private List<EventCoolDown> cooldowns = new ArrayList<>();
     private Dialog dialog;
     private Dragon dragon;
     private TownPortal townPortal;
@@ -81,11 +97,19 @@ public final class User extends Life {
     private String adBoard;
     private boolean inTransfer;
     private Instant nextCheckItemExpire;
+    private int dojoEnergy;
+    private Instant lastFameTime;
+    private List<Tuple<Instant, Integer>> lastMonthFame;
+    private long dpsStart = -1;
+    private long damageDealt = 0;
+    private ScheduledFuture<?> dpsTask;
+    private AutoBanManager abManager;
 
     public User(Client client, CharacterData characterData) {
         this.client = client;
         this.characterData = characterData;
         this.nextCheckItemExpire = Instant.MIN;
+        this.abManager = new AutoBanManager(this);
     }
 
     public Client getClient() {
@@ -155,6 +179,8 @@ public final class User extends Life {
     public WildHunterInfo getWildHunterInfo() {
         return characterData.getWildHunterInfo();
     }
+
+    public PersonalInfo getPersonalInfo() { return characterData.getPersonalInfo() != null ? characterData.getPersonalInfo() : PersonalInfo.EMPTY; }
 
     public BasicStat getBasicStat() {
         return basicStat;
@@ -233,7 +259,7 @@ public final class User extends Life {
         return getPartyInfo().getMemberIndex();
     }
 
-    public boolean isPartyBoss() {
+    public boolean isPartyLeader() {
         return getPartyInfo().isBoss();
     }
 
@@ -266,6 +292,13 @@ public final class User extends Life {
         return getAllianceId() != 0;
     }
 
+    public long getDpsStart() { return dpsStart; }
+    public void setDpsStart(long dpsStart) { this.dpsStart = dpsStart; }
+    public long getDpsDamage() { return damageDealt; }
+    public void setDpsDamage(long damageDealt) { this.damageDealt = damageDealt; }
+    public ScheduledFuture<?> getDpsTask() { return dpsTask; }
+    public void setDpsTask(ScheduledFuture<?> dpsTask) { this.dpsTask = dpsTask; }
+
     public Dialog getDialog() {
         return dialog;
     }
@@ -282,10 +315,42 @@ public final class User extends Life {
         if (getDialog() instanceof ScriptDialog scriptDialog) {
             scriptDialog.close();
         } else if (getDialog() instanceof MiniRoom miniRoom) {
-            miniRoom.leave(this);
+            try (var lockedRoom = miniRoom.acquire()) {
+                lockedRoom.get().leaveUnsafe(this);
+            }
         } else {
             setDialog(null);
         }
+    }
+
+    public EventCoolDown getCoolDownByType(EventType eventType) {
+        return this.cooldowns.stream().filter(eventCoolDown -> eventCoolDown.getEventType() == eventType).toList().getFirst();
+    }
+
+    public void addCoolDown(EventType eventType, long time) {
+        addCoolDown(eventType, 1, System.currentTimeMillis() + time);
+    }
+
+    public void addCoolDown(EventType eventType, int amountDone, long nextReset) {
+        EventCoolDown cd = this.cooldowns.stream().filter(eventCoolDown -> eventCoolDown.getEventType() == eventType).findFirst().orElse(null);
+        if (cd == null) {
+            cd = new EventCoolDown(eventType, amountDone, nextReset);
+            this.cooldowns.add(cd);
+        } else {
+            cd.setNextResetTime(nextReset);
+            cd.setAmountDone(amountDone);
+        }
+    }
+
+    public int getEventAmountDone(EventType eventType) {
+        EventCoolDown cd = this.cooldowns.stream().filter(eventCoolDown -> eventCoolDown.getEventType() == eventType).findFirst().orElse(null);
+        if (cd == null) {
+            return 0;
+        }
+        if (System.currentTimeMillis() > cd.getNextResetTime()) {
+            cd.setAmountDone(0);
+        }
+        return cd.getAmountDone();
     }
 
     public Dragon getDragon() {
@@ -295,6 +360,27 @@ public final class User extends Life {
     public void setDragon(Dragon dragon) {
         this.dragon = dragon;
     }
+
+    public int getDojoEnergy() { return dojoEnergy; }
+    public void setDojoEnergy(int newEnergy) { this.dojoEnergy = newEnergy; }
+
+    public Instant getLastFameTime() {
+        return lastFameTime;
+    }
+
+    public void setLastFameTime(Instant lastFameTime) {
+        this.lastFameTime = lastFameTime;
+    }
+
+    public List<Tuple<Instant, Integer>> getLastMonthFame() {
+        return lastMonthFame;
+    }
+
+    public void setLastMonthFame(List<Tuple<Instant, Integer>> lastMonthFame) {
+        this.lastMonthFame = lastMonthFame;
+    }
+
+    public void resetDojoEnergy() { this.dojoEnergy = 0; }
 
     public TownPortal getTownPortal() {
         return townPortal;
@@ -366,6 +452,14 @@ public final class User extends Life {
         return getCharacterStat().getJob();
     }
 
+    public boolean is3rdJob() {
+        return getCharacterStat().getJob() % 10 == 1 || getCharacterStat().getJob() == Job.BLADE_LORD.getJobId();
+    }
+
+    public boolean is4thJob() {
+        return getCharacterStat().getJob() % 10 == 2;
+    }
+
     public int getLevel() {
         return getCharacterStat().getLevel();
     }
@@ -376,7 +470,7 @@ public final class User extends Life {
 
     public void setHp(int hp) {
         getCharacterStat().setHp(Math.clamp(hp, 0, getMaxHp()));
-        write(WvsContext.statChanged(Stat.HP, getHp(), false));
+        write(WvsContext.statChanged(Stat.HP, getHp(), true));
         // Update party
         getField().getUserPool().forEachPartyMember(this, (member) -> {
             member.write(UserRemote.receiveHp(this));
@@ -393,7 +487,7 @@ public final class User extends Life {
 
     public void setMp(int mp) {
         getCharacterStat().setMp(Math.clamp(mp, 0, getMaxMp()));
-        write(WvsContext.statChanged(Stat.MP, getMp(), false));
+        write(WvsContext.statChanged(Stat.MP, getMp(), true));
     }
 
     public void addMp(int mp) {
@@ -409,8 +503,25 @@ public final class User extends Life {
     }
 
     public void addExp(int exp) {
-        final Map<Stat, Object> addExpResult = getCharacterStat().addExp(exp, getBasicStat().getInt());
-        write(WvsContext.statChanged(addExpResult, false));
+        final Map<Stat, Object> addExpResult = getCharacterStat().addExp(exp, getBasicStat().getInt(), false, getFieldId());
+        write(WvsContext.statChanged(addExpResult, true));
+        // Level up
+        if (addExpResult.containsKey(Stat.LEVEL)) {
+            getField().broadcastPacket(UserRemote.effect(this, Effect.levelUp()), this);
+            validateStat();
+            setHp(getMaxHp());
+            setMp(getMaxMp());
+            getConnectedServer().notifyUserUpdate(this);
+            // Max level
+            if (getLevel() == GameConstants.getLevelMax(getJob())) {
+                getCharacterData().setMaxLevelTime(Instant.now());
+            }
+        }
+    }
+
+    public void addQuestExp(int exp) {
+        final Map<Stat, Object> addExpResult = getCharacterStat().addExp(exp, getBasicStat().getInt(), true, getFieldId());
+        write(WvsContext.statChanged(addExpResult, true));
         // Level up
         if (addExpResult.containsKey(Stat.LEVEL)) {
             getField().broadcastPacket(UserRemote.effect(this, Effect.levelUp()), this);
@@ -430,10 +541,22 @@ public final class User extends Life {
     }
 
     public void addPop(int pop) {
-        final short newPop = (short) Math.clamp(getPop() + pop, Short.MIN_VALUE, Short.MAX_VALUE);
+        final short newPop = (short) Math.min(getPop() + pop, Short.MAX_VALUE);
         getCharacterStat().setPop(newPop);
         validateStat();
-        write(WvsContext.statChanged(Stat.POP, newPop, false));
+        write(WvsContext.statChanged(Stat.POP, newPop, true));
+    }
+
+    public int canGivePop(User targetUser) {
+        if (this.lastFameTime.isAfter(Instant.now().minus(Duration.ofDays(1)))) {
+            return FameConstants.NOT_TODAY;
+        }
+        for (Tuple<Instant, Integer> fame : this.lastMonthFame) {
+            if (fame.getRight() == targetUser.getCharacterId()) {
+                return FameConstants.NOT_THIS_MONTH;
+            }
+        }
+        return FameConstants.CAN_GIVE;
     }
 
     public int getSkillLevel(int skillId) {
@@ -480,7 +603,7 @@ public final class User extends Life {
     }
 
     public void setTemporaryStat(CharacterTemporaryStat cts, TemporaryStatOption option) {
-        setTemporaryStat(Map.of(cts, option), 0);
+        setTemporaryStat(Map.of(cts, option));
     }
 
     public void setTemporaryStat(Map<CharacterTemporaryStat, TemporaryStatOption> setStats) {
@@ -495,7 +618,7 @@ public final class User extends Life {
         validateStat();
         final BitFlag<CharacterTemporaryStat> flag = BitFlag.from(setStats.keySet(), CharacterTemporaryStat.FLAG_SIZE);
         if (!flag.isEmpty()) {
-            write(WvsContext.temporaryStatSet(getSecondaryStat(), flag, delay));
+            write(WvsContext.temporaryStatSet(getSecondaryStat(), flag));
             getField().broadcastPacket(UserRemote.temporaryStatSet(this, getSecondaryStat(), flag), this);
         }
     }
@@ -550,7 +673,6 @@ public final class User extends Life {
         }
         return resetCooltimes;
     }
-
 
     public void setConsumeItemEffect(ItemInfo itemInfo) {
         // Apply recovery and resolve stat ups
@@ -665,17 +787,17 @@ public final class User extends Life {
         if (petIndex == 0) {
             getCharacterStat().setPetSn1(petSn);
             if (!isMigrate) {
-                write(WvsContext.statChanged(Stat.PETSN, petSn, false));
+                write(WvsContext.statChanged(Stat.PETSN, petSn, true));
             }
         } else if (petIndex == 1) {
             getCharacterStat().setPetSn2(petSn);
             if (!isMigrate) {
-                write(WvsContext.statChanged(Stat.PETSN2, petSn, false));
+                write(WvsContext.statChanged(Stat.PETSN2, petSn, true));
             }
         } else if (petIndex == 2) {
             getCharacterStat().setPetSn3(petSn);
             if (!isMigrate) {
-                write(WvsContext.statChanged(Stat.PETSN3, petSn, false));
+                write(WvsContext.statChanged(Stat.PETSN3, petSn, true));
             }
         }
     }
@@ -767,6 +889,32 @@ public final class User extends Life {
         return Optional.of(summonedList.getFirst());
     }
 
+    // AUTOBAN  --------------------------------------------------------------------------------------------------------
+
+    public void ban(String reason) {
+        getAccount().setIsBanned(true);
+        if (!DatabaseManager.accountAccessor().banAccount(getAccountId(), reason)) {
+            log.error("Failed to ban account {}", getAccount());
+        }
+        logout(true);
+    }
+
+    public void autoban(String reason) {
+        if (this.getAccount().isGM() || this.isBanned()) {
+            return;
+        }
+
+        this.ban(reason);
+    }
+
+    public boolean isBanned() {
+        return getAccount().getIsBanned();
+    }
+
+    public AutoBanManager getAbManager() {
+        return this.abManager;
+    }
+
 
     // OTHER HELPER METHODS --------------------------------------------------------------------------------------------
 
@@ -832,7 +980,7 @@ public final class User extends Life {
                 });
             }
             // Assign new party leader on disconnect
-            if (disconnect && isPartyBoss()) {
+            if (disconnect && isPartyLeader()) {
                 for (User member : field.getUserPool().getPartyMembers(getPartyId())) {
                     getConnectedServer().submitPartyRequest(this, PartyRequest.changePartyBoss(member.getCharacterId(), true));
                     break;
@@ -860,6 +1008,18 @@ public final class User extends Life {
         }
     }
 
+    /**
+     * This should be used in unfortunate cases where a method cannot accept a {@link kinoko.util.Locked<User>} to
+     * ensure that the method is called after acquiring the lock. It is preferable to submit a runnable to the
+     * {@link kinoko.server.node.ServerExecutor} to acquire the lock in a separate thread, but sometimes we want our
+     * code to run first - e.g. before saving to database.
+     *
+     * @return true if the current thread has acquired the {@link kinoko.util.Lockable<User>} object.
+     */
+    public boolean isLocked() {
+        return lock.isHeldByCurrentThread();
+    }
+
 
     // OVERRIDES -------------------------------------------------------------------------------------------------------
 
@@ -871,5 +1031,20 @@ public final class User extends Life {
     @Override
     public void setId(int id) {
         throw new IllegalStateException("Tried to modify character ID");
+    }
+
+    @Override
+    public void lock() {
+        lock.lock();
+    }
+
+    @Override
+    public void unlock() {
+        lock.unlock();
+    }
+
+    @Override
+    public String toString() {
+        return "<Character id=" + getCharacterId() + " name=" + getCharacterName() + ">";
     }
 }

@@ -1,5 +1,7 @@
 package kinoko.handler.stage;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import kinoko.database.DatabaseManager;
 import kinoko.handler.Handler;
 import kinoko.packet.stage.LoginPacket;
@@ -18,6 +20,9 @@ import kinoko.server.node.ChannelInfo;
 import kinoko.server.node.Client;
 import kinoko.server.node.LoginServerNode;
 import kinoko.server.packet.InPacket;
+import kinoko.util.DurationTypeAdapter;
+import kinoko.util.InstantTypeAdapter;
+import kinoko.util.Util;
 import kinoko.world.GameConstants;
 import kinoko.world.item.*;
 import kinoko.world.job.Job;
@@ -35,6 +40,7 @@ import kinoko.world.user.stat.StatConstants;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -44,6 +50,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class LoginHandler {
     private static final Logger log = LogManager.getLogger(LoginHandler.class);
+
+    static Gson gson = new GsonBuilder()
+            .registerTypeAdapter(Instant.class, new InstantTypeAdapter())
+            .registerTypeAdapter(Duration.class, new DurationTypeAdapter())
+            .create();
 
     @Handler(InHeader.CheckPassword)
     public static void handleCheckPassword(Client c, InPacket inPacket) {
@@ -70,7 +81,8 @@ public final class LoginHandler {
         // Check if logged in
         final LoginServerNode loginServerNode = (LoginServerNode) c.getServerNode();
         loginServerNode.submitOnlineRequest(account, (online) -> {
-            if (online || loginServerNode.isConnected(account)) {
+            final boolean isConnected = loginServerNode.isConnected(account);
+            if (online || isConnected) {
                 c.write(LoginPacket.checkPasswordResultFail(LoginResultType.AlreadyConnected));
                 return;
             }
@@ -78,6 +90,13 @@ public final class LoginHandler {
             // Check password
             if (!DatabaseManager.accountAccessor().checkPassword(account, password, false)) {
                 c.write(LoginPacket.checkPasswordResultFail(LoginResultType.IncorrectPassword));
+                return;
+            }
+
+            // Multi-client logic
+            String readableMachineId = Util.readableByteArray(machineId);
+            if (DatabaseManager.activeMachineAccessor().checkActiveInstances(readableMachineId) >= ServerConfig.MULTICLIENT_MAX_INSTANCES) {
+                c.write(LoginPacket.checkPasswordResultFail(LoginResultType.ImpossibleIP));
                 return;
             }
 
@@ -94,6 +113,11 @@ public final class LoginHandler {
         c.write(LoginPacket.worldInformation(loginServerNode.getChannels()));
         c.write(LoginPacket.worldInformationEnd());
         c.write(LoginPacket.latestConnectedWorld(ServerConfig.WORLD_ID));
+    }
+
+    @Handler(InHeader.LogoutWorld)
+    public static void handleLogoutWorld(Client c, InPacket inPacket) {
+        c.getServerNode().removeClient(c);
     }
 
     @Handler(InHeader.ViewAllChar)
@@ -365,10 +389,11 @@ public final class LoginHandler {
     @Handler(InHeader.SelectCharacter)
     public static void handleSelectCharacter(Client c, InPacket inPacket) {
         final int characterId = inPacket.decodeInt();
-        final String macAddress = inPacket.decodeString(); // CLogin::GetLocalMacAddress
-        final String macAddressWithHddSerial = inPacket.decodeString(); // CLogin::GetLocalMacAddressWithHDDSerialNo
+        final String macAddress = inPacket.decodeString();
+        final String macAddressWithHddSerial = inPacket.decodeString();
 
         final Account account = c.getAccount();
+        System.out.println("[DEBUG] SelectCharacter for ID: " + characterId + " | Account: " + (account != null ? account.getId() : "null"));
         if (ServerConfig.REQUIRE_SECONDARY_PASSWORD || account == null || !account.canSelectCharacter(characterId)) {
             c.write(LoginPacket.selectCharacterResultFail(LoginResultType.Unknown, false));
             return;

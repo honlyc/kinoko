@@ -342,13 +342,13 @@ public final class CharacterStat implements Encodable {
         return statMap;
     }
 
-    public Map<Stat, Object> addExp(int delta, int totalInt) {
+    public Map<Stat, Object> addExp(int delta, int totalInt, boolean addQuestRate, int fieldId) {
         final Map<Stat, Object> statMap = new EnumMap<>(Stat.class);
         if (getLevel() >= GameConstants.getLevelMax(job)) {
             return statMap;
         }
-        long newExp = ((long) getExp()) + delta;
-        while (getLevel() < GameConstants.getLevelMax(job) && newExp >= GameConstants.getNextLevelExp(getLevel())) {
+        long newExp = ((long) getExp()) + (addQuestRate ? (long) delta * Util.getQuestRateByMap(fieldId) : delta);
+        while (newExp >= GameConstants.getNextLevelExp(getLevel())) {
             newExp -= GameConstants.getNextLevelExp(getLevel());
             statMap.putAll(levelUp(totalInt));
         }

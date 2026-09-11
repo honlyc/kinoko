@@ -2,20 +2,30 @@ package kinoko.server.node;
 
 import kinoko.world.user.Account;
 import kinoko.world.user.User;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 public final class ClientStorage {
+    private static final Logger log = LogManager.getLogger(ClientStorage.class);
     private final Lock lock = new ReentrantLock();
     private final Map<Integer, Client> mapByAccountId = new HashMap<>();
     private final Map<Integer, Client> mapByCharacterId = new HashMap<>();
 
     public boolean isConnected(Account account) {
-        lock.lock();
         try {
-            return mapByAccountId.containsKey(account.getId());
+            if (!lock.tryLock(5, TimeUnit.SECONDS)) {
+                return false;
+            }
+            final int accountId = account.getId();
+            return mapByAccountId.containsKey(accountId);
+        } catch (Exception e) {
+            return false;
         } finally {
             lock.unlock();
         }
@@ -71,22 +81,23 @@ public final class ClientStorage {
         }
     }
 
-    public List<Client> getConnectedClients() {
+    public Set<Client> getConnectedClients() {
         lock.lock();
         try {
-            return mapByAccountId.values().stream().toList();
+            return mapByAccountId.values().stream()
+                    .collect(Collectors.toUnmodifiableSet());
         } finally {
             lock.unlock();
         }
     }
 
-    public List<User> getConnectedUsers() {
+    public Set<User> getConnectedUsers() {
         lock.lock();
         try {
             return mapByCharacterId.values().stream()
                     .map(Client::getUser)
                     .filter(Objects::nonNull)
-                    .toList();
+                    .collect(Collectors.toUnmodifiableSet());
         } finally {
             lock.unlock();
         }

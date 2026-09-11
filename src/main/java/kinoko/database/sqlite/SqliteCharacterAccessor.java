@@ -152,6 +152,11 @@ public final class SqliteCharacterAccessor extends SqliteAccessor implements Cha
     }
 
     @Override
+    public List<CharacterData> getAllCharacters(int accountId) {
+        return List.of();
+    }
+
+    @Override
     public Optional<CharacterInfo> getCharacterInfoByName(String name) {
         try (PreparedStatement ps = getConnection().prepareStatement(
                 "SELECT " +

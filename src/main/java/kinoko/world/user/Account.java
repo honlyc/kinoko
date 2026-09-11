@@ -1,10 +1,14 @@
 package kinoko.world.user;
 
+import kinoko.util.Lockable;
 import kinoko.world.item.Trunk;
 
 import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-public final class Account {
+public final class Account implements Lockable<Account> {
+    private final Lock lock = new ReentrantLock();
     private final int id;
     private final String username;
     private int slotCount;
@@ -14,6 +18,8 @@ public final class Account {
     private Trunk trunk;
     private Locker locker;
     private List<Integer> wishlist;
+    private int gm;
+    private boolean isBanned;
 
     // TRANSIENT
     private int channelId = -1;
@@ -28,6 +34,8 @@ public final class Account {
     public int getId() {
         return id;
     }
+
+    public boolean isGM() { return gm == 1; }
 
     public String getUsername() {
         return username;
@@ -47,6 +55,17 @@ public final class Account {
 
     public void setNxCredit(int nxCredit) {
         this.nxCredit = nxCredit;
+    }
+    public void setGM(int currentGm) {
+        this.gm = currentGm;
+    }
+
+    public void setIsBanned(boolean isBanned) {
+        this.isBanned = isBanned;
+    }
+
+    public boolean getIsBanned() {
+        return this.isBanned;
     }
 
     public int getNxPrepaid() {
@@ -119,5 +138,15 @@ public final class Account {
     public boolean canSelectCharacter(int characterId) {
         return getCharacterList() != null &&
                 getCharacterList().stream().anyMatch(avatarData -> avatarData.getCharacterId() == characterId);
+    }
+
+    @Override
+    public void lock() {
+        lock.lock();
+    }
+
+    @Override
+    public void unlock() {
+        lock.unlock();
     }
 }

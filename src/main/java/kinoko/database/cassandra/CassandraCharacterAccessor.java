@@ -150,6 +150,11 @@ public final class CassandraCharacterAccessor extends CassandraAccessor implemen
     }
 
     @Override
+    public List<CharacterData> getAllCharacters(int accountId) {
+        return List.of();
+    }
+
+    @Override
     public Optional<CharacterInfo> getCharacterInfoByName(String name) {
         final ResultSet selectResult = getSession().execute(
                 selectFrom(getKeyspace(), tableName)

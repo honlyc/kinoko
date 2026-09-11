@@ -14,7 +14,6 @@ import kinoko.server.field.Instance;
 import kinoko.server.field.InstanceStorage;
 import kinoko.server.guild.GuildBoardRequest;
 import kinoko.server.guild.GuildRequest;
-import kinoko.server.handler.ChannelServerHandler;
 import kinoko.server.messenger.MessengerRequest;
 import kinoko.server.migration.MigrationInfo;
 import kinoko.server.migration.TransferInfo;
@@ -33,6 +32,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -67,7 +67,7 @@ public final class ChannelServerNode extends ServerNode {
     public void submitMigrationRequest(int accountId, int characterId, byte[] machineId, byte[] clientKey, Consumer<Optional<MigrationInfo>> consumer) {
         final CompletableFuture<Optional<MigrationInfo>> migrationRequestFuture = new CompletableFuture<>();
         migrationRequestFuture.thenAccept(consumer).exceptionally(e -> {
-            log.error("Exception caught while processing migration request", e);
+            log.error("Exception caught while consuming migration request", e);
             e.printStackTrace();
             return null;
         });
@@ -87,7 +87,7 @@ public final class ChannelServerNode extends ServerNode {
     public void submitTransferRequest(MigrationInfo migrationInfo, Consumer<Optional<TransferInfo>> consumer) {
         final CompletableFuture<Optional<TransferInfo>> transferRequestFuture = new CompletableFuture<>();
         transferRequestFuture.thenAccept(consumer).exceptionally(e -> {
-            log.error("Exception caught while processing transfer request", e);
+            log.error("Exception caught while consuming transfer request", e);
             e.printStackTrace();
             return null;
         });
@@ -111,7 +111,7 @@ public final class ChannelServerNode extends ServerNode {
         return clientStorage.isConnected(user);
     }
 
-    public List<User> getConnectedUsers() {
+    public Set<User> getConnectedUsers() {
         return clientStorage.getConnectedUsers();
     }
 
@@ -128,6 +128,11 @@ public final class ChannelServerNode extends ServerNode {
     }
 
     public void notifyUserDisconnect(User user) {
+        if (user.getPartyId() != 0) {
+            submitPartyRequest(user, PartyRequest.withdrawParty());
+            user.setPartyInfo(null);
+        }
+        centralClientFuture.channel().writeAndFlush(CentralPacket.userDisconnect(RemoteUser.from(user)));
         centralClientFuture.channel().writeAndFlush(CentralPacket.userDisconnect(RemoteUser.from(user)));
     }
 
@@ -146,7 +151,7 @@ public final class ChannelServerNode extends ServerNode {
     public void submitUserQueryRequest(List<String> characterNames, Consumer<List<RemoteUser>> consumer) {
         final CompletableFuture<List<RemoteUser>> userRequestFuture = new CompletableFuture<>();
         userRequestFuture.thenAccept(consumer).exceptionally(e -> {
-            log.error("Exception caught while processing user query request", e);
+            log.error("Exception caught while consuming user query request", e);
             e.printStackTrace();
             return null;
         });
@@ -158,7 +163,7 @@ public final class ChannelServerNode extends ServerNode {
     public void submitUserQueryRequestAll(Consumer<List<RemoteUser>> consumer) {
         final CompletableFuture<List<RemoteUser>> userRequestFuture = new CompletableFuture<>();
         userRequestFuture.thenAccept(consumer).exceptionally(e -> {
-            log.error("Exception caught while processing user query request", e);
+            log.error("Exception caught while consuming user query request", e);
             e.printStackTrace();
             return null;
         });
@@ -260,7 +265,15 @@ public final class ChannelServerNode extends ServerNode {
         // Start channel server
         final ChannelServerNode self = this;
         channelServerFuture = startServer(new PacketChannelInitializer(new ChannelPacketHandler(), self), channelPort);
-        channelServerFuture.sync();
+
+        new Thread(() -> {
+            try {
+                channelServerFuture.sync();
+            } catch (InterruptedException e) {
+                log.error("Channel server sync interrupted", e);
+            }
+        }).start();
+
         log.info("Channel {} listening on port {}", channelId + 1, channelPort);
 
         // Start central client

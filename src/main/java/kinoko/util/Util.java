@@ -1,20 +1,32 @@
 package kinoko.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import io.github.cdimascio.dotenv.Dotenv;
+
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
-import java.util.Collection;
-import java.util.HexFormat;
-import java.util.Optional;
-import java.util.Random;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.*;
 import java.util.function.ToDoubleFunction;
 
+import static kinoko.world.GameConstants.*;
+
 public final class Util {
+    private static final Dotenv dotenv = Dotenv.load();
     private static final HexFormat hexFormat = HexFormat.ofDelimiter(" ").withUpperCase();
     private static final Random random = new SecureRandom();
 
     public static String getEnv(String name, String defaultValue) {
-        final String value = System.getenv(name);
+        String value = System.getenv(name);
+        if (value == null) {
+            value = dotenv.get(name);
+        }
         return value != null ? value : defaultValue;
     }
 
@@ -33,6 +45,19 @@ public final class Util {
             return InetAddress.getByName(name).getAddress();
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public static String ordinal(int i) {
+        String[] sufixes = new String[]{"th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th"};
+        switch (i % 100) {
+            case 11:
+            case 12:
+            case 13:
+                return i + "th";
+
+            default:
+                return i + sufixes[i % 10];
         }
     }
 
@@ -99,5 +124,55 @@ public final class Util {
 
     public static boolean isInteger(String string) {
         return string != null && string.matches("^-?\\d+$");
+    }
+
+    public static String convertListToJson(List<?> list) {
+        Gson gson = new GsonBuilder()
+                .registerTypeAdapter(Instant.class, new InstantTypeAdapter())
+                .registerTypeAdapter(Duration.class, new DurationTypeAdapter())
+                .create();
+        return gson.toJson(list); // Convert list to JSON string
+    }
+
+    public static Timestamp toTimestamp(java.time.Instant instant) {
+        return (instant != null) ? Timestamp.from(instant) : null;
+    }
+
+    public static String convertObjectToJson(Object obj) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "{}";
+        }
+    }
+
+    public static int getExpRateByMap(int fieldId) {
+        if (fieldId < 100000000) {
+            return 1;
+        }
+        return EXP_RATE;
+    }
+
+    public static int getDropRateByMap(int fieldId) {
+        if (fieldId < 100000000) {
+            return 1;
+        }
+        return DROP_RATE;
+    }
+
+    public static int getQuestRateByMap(int fieldId) {
+        if (fieldId < 100000000) {
+            return 1;
+        }
+        return QUEST_RATE;
+    }
+
+    public static int getMesoRateByMap(int fieldId) {
+        if (fieldId < 100000000) {
+            return 1;
+        }
+        return MESO_RATE;
     }
 }

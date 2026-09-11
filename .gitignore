@@ -44,3 +44,7 @@ build/
 /wz/
 /json/
 *.db
+
+# env
+.env
+.editorconfig

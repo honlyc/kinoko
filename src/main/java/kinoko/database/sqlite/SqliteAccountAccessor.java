@@ -223,6 +223,16 @@ public final class SqliteAccountAccessor extends SqliteAccessor implements Accou
         return false;
     }
 
+    @Override
+    public void setLoggedStatus(Account account, boolean status) {
+
+    }
+
+    @Override
+    public boolean banAccount(int accountId, String reason) {
+        return false;
+    }
+
     public static void createTable(Connection connection) throws SQLException {
         try (Statement s = connection.createStatement()) {
             s.executeUpdate(

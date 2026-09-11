@@ -7,10 +7,7 @@ import kinoko.provider.ItemProvider;
 import kinoko.provider.item.ItemInfo;
 import kinoko.server.packet.InPacket;
 import kinoko.world.GameConstants;
-import kinoko.world.item.InventoryManager;
-import kinoko.world.item.InventoryOperation;
-import kinoko.world.item.InventoryType;
-import kinoko.world.item.Item;
+import kinoko.world.item.*;
 import kinoko.world.user.User;
 import kinoko.world.user.stat.Stat;
 
@@ -146,37 +143,39 @@ public final class PersonalShop extends MiniRoom {
                     user.dispose();
                     return;
                 }
-                final User owner = getUser(0);
-                final int moneyForOwner = GameConstants.getPersonalShopTax((int) totalPrice);
-                if (!owner.getInventoryManager().canAddMoney(moneyForOwner)) {
-                    user.write(MiniRoomPacket.PlayerShop.buyResult(PlayerShopBuyResult.OverPrice)); // The price of the item is too high for the trade.
-                    user.dispose();
-                    return;
-                }
-                // Do transaction
-                item.getItem().setQuantity((short) (item.getItem().getQuantity() - totalCount));
-                final Item buyItem = new Item(item.getItem());
-                buyItem.setItemSn(owner.getNextItemSn());
-                buyItem.setQuantity((short) totalCount);
-                if (!im.addMoney((int) -totalPrice)) {
-                    throw new IllegalStateException("Could not deduct total price from user");
-                }
-                final Optional<List<InventoryOperation>> addItemResult = im.addItem(buyItem);
-                if (addItemResult.isEmpty()) {
-                    throw new IllegalStateException("Could not add bought item to inventory");
-                }
-                if (!owner.getInventoryManager().addMoney(moneyForOwner)) {
-                    throw new IllegalStateException("Could not add money to personal shop owner");
-                }
-                // Update clients
-                user.write(WvsContext.statChanged(Stat.MONEY, im.getMoney(), false));
-                user.write(WvsContext.inventoryOperation(addItemResult.get(), true));
-                owner.write(WvsContext.statChanged(Stat.MONEY, owner.getInventoryManager().getMoney(), false));
-                if (isNoMoreItem()) {
-                    closeShop(owner, MiniRoomLeaveType.NoMoreItem);
-                } else {
-                    owner.write(MiniRoomPacket.PlayerShop.addSoldItem(itemIndex, setCount, user.getCharacterName()));
-                    broadcastPacket(MiniRoomPacket.PlayerShop.refresh(items));
+                try (var lockedOwner = getUser(0).acquire()) {
+                    final User owner = lockedOwner.get();
+                    final int moneyForOwner = GameConstants.getPersonalShopTax((int) totalPrice);
+                    if (!owner.getInventoryManager().canAddMoney(moneyForOwner)) {
+                        user.write(MiniRoomPacket.PlayerShop.buyResult(PlayerShopBuyResult.OverPrice)); // The price of the item is too high for the trade.
+                        user.dispose();
+                        return;
+                    }
+                    // Do transaction
+                    item.getItem().setQuantity((short) (item.getItem().getQuantity() - totalCount));
+                    final Item buyItem = new Item(item.getItem());
+                    buyItem.setItemSn(owner.getNextItemSn());
+                    buyItem.setQuantity((short) totalCount);
+                    if (!im.addMoney((int) -totalPrice)) {
+                        throw new IllegalStateException("Could not deduct total price from user");
+                    }
+                    final Optional<List<InventoryOperation>> addItemResult = im.addItem(buyItem);
+                    if (addItemResult.isEmpty()) {
+                        throw new IllegalStateException("Could not add bought item to inventory");
+                    }
+                    if (!owner.getInventoryManager().addMoney(moneyForOwner)) {
+                        throw new IllegalStateException("Could not add money to personal shop owner");
+                    }
+                    // Update clients
+                    user.write(WvsContext.statChanged(Stat.MONEY, im.getMoney(), false));
+                    user.write(WvsContext.inventoryOperation(addItemResult.get(), true));
+                    owner.write(WvsContext.statChanged(Stat.MONEY, owner.getInventoryManager().getMoney(), false));
+                    if (isNoMoreItem()) {
+                        closeShopUnsafe(owner, MiniRoomLeaveType.NoMoreItem);
+                    } else {
+                        owner.write(MiniRoomPacket.PlayerShop.addSoldItem(itemIndex, setCount, user.getCharacterName()));
+                        broadcastPacket(MiniRoomPacket.PlayerShop.refresh(items));
+                    }
                 }
             }
             case PSP_MoveItemToInventory -> {
@@ -210,10 +209,11 @@ public final class PersonalShop extends MiniRoom {
     }
 
     @Override
-    public void leave(User user) {
+    public void leaveUnsafe(User user) {
+        assert user.isLocked();
         final int userIndex = getUserIndex(user);
         if (userIndex == 0) {
-            closeShop(user, MiniRoomLeaveType.UserRequest);
+            closeShopUnsafe(user, MiniRoomLeaveType.UserRequest);
         } else {
             broadcastPacket(MiniRoomPacket.leave(userIndex, MiniRoomLeaveType.UserRequest));
             removeUser(userIndex);
@@ -227,7 +227,12 @@ public final class PersonalShop extends MiniRoom {
         getField().broadcastPacket(UserPacket.userMiniRoomBalloon(getUser(0), this));
     }
 
-    public void closeShop(User owner, MiniRoomLeaveType leaveType) {
+    public void closeShop(User user, MiniRoomLeaveType leaveType) {
+        closeShopUnsafe(user, leaveType);
+    }
+
+    private void closeShopUnsafe(User owner, MiniRoomLeaveType leaveType) {
+        assert owner.isLocked();
         assert isOwner(owner);
         // Return items
         final List<InventoryOperation> inventoryOperations = new ArrayList<>();
@@ -248,8 +253,10 @@ public final class PersonalShop extends MiniRoom {
             if (guest == null) {
                 continue;
             }
-            guest.write(MiniRoomPacket.leave(i, MiniRoomLeaveType.HostOut)); // The shop is closed.
-            guest.setDialog(null);
+            try (var lockedGuest = guest.acquire()) {
+                guest.write(MiniRoomPacket.leave(i, MiniRoomLeaveType.HostOut)); // The shop is closed.
+                guest.setDialog(null);
+            }
         }
         // Remove shop
         broadcastPacket(MiniRoomPacket.leave(0, leaveType));

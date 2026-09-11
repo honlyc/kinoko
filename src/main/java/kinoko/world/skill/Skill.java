@@ -103,7 +103,7 @@ public final class Skill {
                 ", positionY=" + positionY +
                 ", delay=" + delay +
                 ", affectedMemberBitMap=" + affectedMemberBitMap +
-                ", targetIds=" + Arrays.toString(targetIds) +
+                ", mobIds=" + Arrays.toString(targetIds) +
                 ", captureTargetMobId=" + captureTargetMobId +
                 ", randomCapturedMobId=" + randomCapturedMobId +
                 ", spiritJavelinItemId=" + spiritJavelinItemId +

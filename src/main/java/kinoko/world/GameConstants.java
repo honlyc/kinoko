@@ -11,6 +11,13 @@ import java.util.Arrays;
 import java.util.List;
 
 public final class GameConstants {
+    // RATES --------------------------------------------------------------------------------------------------
+
+    public static final int EXP_RATE = 14;
+    public static final int MESO_RATE = 7;
+    public static final int DROP_RATE = 7;
+    public static final int QUEST_RATE = 7;
+
     // USER CONSTANTS --------------------------------------------------------------------------------------------------
 
     public static final int CHARACTER_SLOT_MAX = 15;
@@ -18,7 +25,6 @@ public final class GameConstants {
     public static final int TRUNK_SLOT_MAX = 48;
     public static final int LOCKER_SLOT_MAX = 500; // avoid reaching packet size limit
     public static final int PLAYER_SHOP_SLOT_MAX = 16;
-
     public static final int DEFAULT_ITEM_SLOT_MAX = 100; // CItemInfo::GetBundleItemInfoData
     public static final int MONEY_MAX = Integer.MAX_VALUE;
 
@@ -91,12 +97,11 @@ public final class GameConstants {
 
 
     // MOB CONSTANTS ---------------------------------------------------------------------------------------------------
-
     public static final int MOB_HP_TAG_INTERVAL = 500;
-    public static final int MOB_SKILL_COOLTIME = 3;
+    public static final int MOB_SKILL_COOLTIME = 6;
     public static final int MOB_RECOVER_TIME = 5;
-    public static final int MOB_RESPAWN_TIME = 7;
-    public static final int MOB_CAPACITY_MAX = 40;
+    public static final int MOB_RESPAWN_TIME = 4;
+    public static final int MOB_CAPACITY_MAX = 60;
     public static final double MOB_CAPACITY_CONSTANT = 0.0000078125;
 
 

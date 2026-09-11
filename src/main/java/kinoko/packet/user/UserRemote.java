@@ -14,8 +14,11 @@ import kinoko.world.user.User;
 import kinoko.world.user.effect.Effect;
 import kinoko.world.user.stat.CharacterTemporaryStat;
 import kinoko.world.user.stat.SecondaryStat;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public final class UserRemote {
+    private static final Logger log = LogManager.getLogger(UserRemote.class);
     // CUserPool::OnUserRemotePacket -----------------------------------------------------------------------------------
 
     public static OutPacket move(User user, MovePath movePath) {

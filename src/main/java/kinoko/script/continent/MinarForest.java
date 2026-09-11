@@ -1,13 +1,16 @@
 package kinoko.script.continent;
 
+import kinoko.provider.reward.Reward;
 import kinoko.script.common.Script;
 import kinoko.script.common.ScriptHandler;
 import kinoko.script.common.ScriptManager;
 import kinoko.util.Tuple;
 import kinoko.world.quest.QuestRecordType;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 
 public final class MinarForest extends ScriptHandler {
@@ -199,6 +202,285 @@ public final class MinarForest extends ScriptHandler {
         sm.warp(240020401, "in00"); // Leafre : Manon's Forest
     }
 
+    @Script("minar_elli")
+    public static void minar_elli(ScriptManager sm) {
+        if (!sm.hasItem(4031346, 1)) {
+            sm.message("You need a magic seed to use this portal.");
+            return;
+        }
+
+        if (sm.getFieldId() == 240010100) {
+            sm.removeItem(4031346, 1);
+            sm.playPortalSE();
+            sm.warp(101030100, "minar00");
+        } else if(sm.getFieldId() == 101030100) {
+            sm.removeItem(4031346, 1);
+            sm.playPortalSE();
+            sm.warp(240010100, "elli00");
+        }
+    }
+
+    @Script("minar_weapon")
+    public static void minar_weapon(ScriptManager sm) {
+        boolean stimulator = false;
+        int selectedType = -1;
+
+        Map<Integer, String> menuOptions = new HashMap<>();
+        menuOptions.put(0, "What's a stimulator?");
+        menuOptions.put(1, "Create a Warrior Weapon");
+        menuOptions.put(2, "Create a Bowman Weapon");
+        menuOptions.put(3, "Create a Magician Weapon");
+        menuOptions.put(4, "Create a Thief Weapon");
+        menuOptions.put(5, "Create a Pirate Weapon");
+        menuOptions.put(6, "Create a Warrior Weapon with a Stimulator");
+        menuOptions.put(7, "Create a Bowman Weapon with a Stimulator");
+        menuOptions.put(8, "Create a Magician Weapon with a Stimulator");
+        menuOptions.put(9, "Create a Thief Weapon with a Stimulator");
+        menuOptions.put(10, "Create a Pirate Weapon with a Stimulator");
+
+        if (sm.hasQuestStarted(7301) || sm.hasQuestStarted(7303)) {
+            menuOptions.put(11, "Make " + itemName(4001078));
+        }
+
+        final int selection = sm.askMenu("A dragon's power is not to be underestimated. If you like, I can add its power to one of your weapons. However, the weapon must be powerful enough to hold its potential...", menuOptions);
+
+        if (selection == 0) {
+            sm.sayOk("A stimulator is a special potion that I can add into the process of creating certain items. It gives it stats as though it had dropped from a monster. However, it is possible to have no change, and it is also possible for the item to be below average. There's also a 10% chance of not getting any item when using a stimulator, so please choose wisely.");
+            return;
+        }
+
+        selectedType = selection;
+
+        if (selection > 5 && selection < 11) {
+            stimulator = true;
+            selectedType -= 5;
+        }
+
+        int weaponSelection = -1;
+        int item = -1;
+        List<Integer> mats = null;
+        List<Integer> qty = null;
+        int cost = -1;
+        switch (selectedType) {
+            case 1 -> {
+                weaponSelection = sm.askMenu("Very well, then which Warrior weapon shall receive a dragon's power?", Map.of(
+                        0, "Dragon Carbella - Lv. 110 One-Handed Sword",
+                        1, "Dragon Axe - Lv. 110 One-Handed Axe",
+                        2, "Dragon Mace - Lv. 110 One-Handed BW",
+                        3, "Dragon Claymore - Lv. 110 Two-Handed Sword",
+                        4, "Dragon Battle Axe - Lv. 110 Two-Handed Axe",
+                        5, "Dragon Flame - Lv. 110 Two-Handed BW"
+                ));
+
+                List<Integer> itemList = List.of(1302059, 1312031, 1322052, 1402036, 1412026, 1422028, 1432038, 1442045);
+                List<List<Integer>> materialSetList = List.of(
+                        List.of(1302056, 4000244, 4000245, 4005000),
+                        List.of(1312030, 4000244, 4000245, 4005000),
+                        List.of(1322045, 4000244, 4000245, 4005000),
+                        List.of(1402035, 4000244, 4000245, 4005000),
+                        List.of(1412021, 4000244, 4000245, 4005000),
+                        List.of(1422027, 4000244, 4000245, 4005000),
+                        List.of(1432030, 4000244, 4000245, 4005000),
+                        List.of(1442044, 4000244, 4000245, 4005000)
+                );
+                List<Integer> qtyList = List.of(1, 20, 25, 8);
+                final int costSet = 120000;
+
+                item = itemList.get(weaponSelection);
+                mats = materialSetList.get(weaponSelection);
+                qty = qtyList;
+                cost = costSet;
+            }
+            case 2 -> {
+                weaponSelection = sm.askMenu("Very well, then which Bowman weapon shall receive a dragon's power?", Map.of(
+                        0, "Dragon Shiner Bow - Lv. 110 Bow",
+                        1, "Dragon Shiner Cross - Lv. 110 Crossbow"
+                ));
+
+                List<Integer> itemList = List.of(1452044, 1462039);
+                List<List<Integer>> materialSetList = List.of(
+                        List.of(1452019, 4000244, 4000245, 4005000, 4005002),
+                        List.of(1462015, 4000244, 4000245, 4005000, 4005002)
+                );
+                List<List<Integer>> qtyList = List.of(
+                        List.of(1, 20, 25, 3, 5),
+                        List.of(1, 20, 25, 5, 3)
+                );
+                final int costSet = 120000;
+
+                item = itemList.get(weaponSelection);
+                mats = materialSetList.get(weaponSelection);
+                qty = qtyList.get(weaponSelection);
+                cost = costSet;
+            }
+            case 3 -> {
+                weaponSelection = sm.askMenu("Very well, then which Magician weapon shall receive a dragon's power?", Map.of(
+                        0, "Dragon Wand - Lv. 108 Wand",
+                        1, "Dragon Staff - Lv. 110 Staff"
+                ));
+
+                List<Integer> itemList = List.of(1372032, 1382036);
+                List<List<Integer>> materialSetList = List.of(
+                        List.of(1372010, 4000244, 4000245, 4005001, 4005003),
+                        List.of(1382035, 4000244, 4000245, 4005001, 4005003)
+                );
+                List<Integer> qtyList = List.of(1, 20, 25, 6, 2);
+                final int costSet = 120000;
+
+                item = itemList.get(weaponSelection);
+                mats = materialSetList.get(weaponSelection);
+                qty = qtyList;
+                cost = costSet;
+            }
+            case 4 -> {
+                weaponSelection = sm.askMenu("Very well, then which Thief weapon shall receive a dragon's power?", Map.of(
+                        0, "Dragon Kanzir - Lv. 110 STR Dagger",
+                        1, "Dragon Kreda - Lv. 110 LUK Dagger",
+                        2, "Dragon Green Sleve - Lv. 110 Claw"
+                ));
+
+                List<Integer> itemList = List.of(1332049, 1332050, 1472051);
+                List<List<Integer>> materialSetList = List.of(
+                        List.of(1332051, 4000244, 4000245, 4005000, 4005002),
+                        List.of(1332052, 4000244, 4000245, 4005002, 4005003),
+                        List.of(1472053, 4000244, 4000245, 4005002, 4005003)
+                );
+                List<List<Integer>> qtyList = List.of(
+                        List.of(1, 20, 25, 5, 3),
+                        List.of(1, 20, 25, 3, 5),
+                        List.of(1, 20, 25, 2, 6)
+                );
+                final int costSet = 120000;
+
+                item = itemList.get(weaponSelection);
+                mats = materialSetList.get(weaponSelection);
+                qty = qtyList.get(weaponSelection);
+                cost = costSet;
+            }
+            case 5 -> {
+                weaponSelection = sm.askMenu("Very well, then which Pirate weapon shall receive a dragon's power?", Map.of(
+                        0, "Dragon Slash Claw - Lv. 110 Knuckle",
+                        1, "Dragonfire Revolver - Lv. 110 Gun"
+                ));
+
+                List<Integer> itemList = List.of(1482013, 1492013);
+                List<List<Integer>> materialSetList = List.of(
+                        List.of(1482012, 4000244, 4000245, 4005000, 4005002),
+                        List.of(1492012, 4000244, 4000245, 4005000, 4005002)
+                );
+                List<List<Integer>> qtyList = List.of(
+                        List.of(1, 20, 25, 5, 3),
+                        List.of(1, 20, 25, 3, 5)
+                );
+                final int costSet = 120000;
+
+                item = itemList.get(weaponSelection);
+                mats = materialSetList.get(weaponSelection);
+                qty = qtyList.get(weaponSelection);
+                cost = costSet;
+            }
+            case 11 -> {
+                sm.sayNext("Oh, are you trying to sneak into these lizards to save Moira? I will support your cause wherever I can. Bring me a couple of resources and I will make you an almost identical piece of " + itemName(4001078) + ".");
+
+                item = 4001078;
+                mats = List.of(4011001, 4011002, 4001079);
+                qty = List.of(1, 1, 1);
+                cost = 25000;
+            }
+        }
+
+        StringBuilder prompt = new StringBuilder("You want me to make a " + itemName(item) + "? In that case, I'm going to need specific items from you in order to make it. Make sure you have room in your inventory, though!");
+
+        int stimulatorID = -1;
+        if (stimulator) {
+            stimulatorID = getStimulatorID(item);
+            prompt.append("\r\n").append(itemImage(stimulatorID)).append(" 1 ").append(itemName(stimulatorID));
+        }
+
+        if (mats != null){
+            for(var i = 0; i < mats.size(); i++){
+                prompt.append("\r\n").append(itemImage(mats.get(i))).append(" ").append(qty.get(i)).append(" ").append(itemName(mats.get(i)));
+            }
+        }
+
+        if (cost > 0) {
+            prompt.append("\r\n").append(itemImage(4031138)).append(" ").append(cost).append(" meso");
+        }
+
+        if (sm.askYesNo(prompt.toString())) {
+            boolean complete = true;
+
+            if (!sm.canAddMoney(-cost)) {
+                sm.sayOk("My fee is for the good of all of Leafre. If you cannot pay it, then begone.");
+                return;
+            }
+
+            for (int i = 0; complete && i < Objects.requireNonNull(mats).size(); i++) {
+                if (!sm.hasItem(mats.get(i), qty.get(i))) {
+                    complete = false;
+                }
+            }
+
+            if (stimulator) {
+                if (!sm.hasItem(stimulatorID)) {
+                    complete = false;
+                }
+            }
+
+            if (!complete) {
+                sm.sayOk("I'm afraid that without the correct items, the dragon's essence would... not make for a very reliable weapon. Please bring the correct items next time.");
+                return;
+            }
+
+            for (int i = 0; i < Objects.requireNonNull(mats).size(); i++) {
+                sm.removeItem(mats.get(i), qty.get(i));
+            }
+            sm.addMoney(-cost);
+            if (stimulator) {
+                sm.removeItem(stimulatorID, 1);
+                int deleted = sm.getRandomIntBelow(10);
+                if (deleted != 0) {
+                    sm.addItem(item, 1); // TODO: Implement rand stats
+                    sm.sayOk("The process is complete. Treat your weapon well, lest you bring the wrath of the dragons upon you.");
+                } else {
+                    sm.sayOk("Unfortunately, the dragon's essence has... conflicted with your weapon. My apologies for your loss.");
+                }
+            } else {
+                sm.addItem(item, 1);
+                sm.sayOk("The process is complete. Treat your weapon well, lest you bring the wrath of the dragons upon you.");
+            }
+        }
+    }
+
+    public static int getStimulatorID(int itemId) {
+        int cat = itemId / 10000;
+        int stimulatorBase = 4130002;
+
+        switch (cat) {
+            case 131 -> stimulatorBase++;
+            case 132 -> stimulatorBase += 2;
+            case 140 -> stimulatorBase += 3;
+            case 141 -> stimulatorBase += 4;
+            case 142 -> stimulatorBase += 5;
+            case 143 -> stimulatorBase += 6;
+            case 144 -> stimulatorBase += 7;
+            case 137 -> stimulatorBase += 8;
+            case 138 -> stimulatorBase += 9;
+            case 145 -> stimulatorBase += 10;
+            case 146 -> stimulatorBase += 11;
+            case 133 -> stimulatorBase += 12;
+            case 147 -> stimulatorBase += 13;
+        }
+
+        return stimulatorBase;
+    }
+
+    @Script("dracoout")
+    public static void dracoout(ScriptManager sm) {
+        sm.playPortalSE();
+        sm.warp(240000100, "east00");
+    }
+
 
     // TEMPLE OF TIME SCRIPTS ------------------------------------------------------------------------------------------
 
@@ -332,5 +614,23 @@ public final class MinarForest extends ScriptHandler {
         //   arrival03 (170, 370)
         // Time Lane : Temple of Time (270000100)
         sm.resetConsumeItemEffect(MINI_DRACO_TRANSFORMATION);
+    }
+
+
+    // NEO CITY SCRIPTS ------------------------------------------------------------------------------------------
+
+    @Script("neoCityItem0")
+    public static void neoCityItem0(ScriptManager sm) {
+        // neoCityItem0 (2402007)
+        //   Neo City : <Year 2021> Average Town Entrance (240070100)
+        //   Neo City : <Year 2021> Average Town Playground (240070101)
+        //   Neo City : <Year 2021> Average Town Outskirt (240070102)
+        // neoCityItem0 (2402008)
+        //   Neo City : <Year 2021> Average Town Entrance (240070100)
+        //   Neo City : <Year 2021> Average Town Playground (240070101)
+        //   Neo City : <Year 2021> Average Town Outskirt (240070102)
+        sm.dropRewards(List.of(
+                Reward.item(4032512, 1, 1, 1, 3720)
+        ));
     }
 }

@@ -20,6 +20,7 @@ public final class ItemProvider implements WzProvider {
     public static final Path ITEM_WZ = Path.of(ServerConfig.WZ_DIRECTORY, "Item.wz");
     public static final List<String> EQUIP_TYPES = List.of("Accessory", "Cap", "Cape", "Coat", "Dragon", "Face", "Glove", "Hair", "Longcoat", "Mechanic", "Pants", "PetEquip", "Ring", "Shield", "Shoes", "TamingMob", "Weapon");
     public static final List<String> ITEM_TYPES = List.of("Consume", "Install", "Etc", "Cash");
+    public static final List<Integer> MASTERY_BOOKS = new ArrayList<>();
     private static final Map<Integer, ItemInfo> itemInfos = new HashMap<>();
     private static final Map<Integer, ItemOptionInfo> itemOptionInfos = new HashMap<>(); // item option id -> item option info
     private static final Map<Integer, ItemRewardInfo> itemRewardInfos = new HashMap<>();
@@ -152,6 +153,10 @@ public final class ItemProvider implements WzProvider {
                     // Mob summon info
                     if (itemProp.get("mob") instanceof WzProperty mobSummonList) {
                         mobSummonInfos.put(itemId, MobSummonInfo.from(itemId, mobSummonList));
+                    }
+                    // Mastery Books
+                    if (directoryName.equals(ITEM_TYPES.getFirst()) && itemProp.get("skill") instanceof WzProperty skillList) {
+                        MASTERY_BOOKS.add(itemId);
                     }
                 }
             }

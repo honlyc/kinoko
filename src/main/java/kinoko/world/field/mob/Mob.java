@@ -20,6 +20,7 @@ import kinoko.server.node.ServerExecutor;
 import kinoko.server.packet.OutPacket;
 import kinoko.util.BitFlag;
 import kinoko.util.Encodable;
+import kinoko.util.Lockable;
 import kinoko.util.Util;
 import kinoko.world.GameConstants;
 import kinoko.world.field.ControlledObject;
@@ -34,14 +35,24 @@ import kinoko.world.job.resistance.WildHunter;
 import kinoko.world.quest.QuestRecord;
 import kinoko.world.user.User;
 import kinoko.world.user.stat.CharacterTemporaryStat;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiPredicate;
 
-public final class Mob extends Life implements ControlledObject, Encodable {
+import static kinoko.world.GameConstants.*;
+
+public final class Mob extends Life implements ControlledObject, Encodable, Lockable<Mob> {
+    private static final Logger log = LogManager.getLogger(Mob.class);
+
+    private final Lock lock = new ReentrantLock();
     private final MobStat mobStat = new MobStat();
     private final Map<MobSkill, Instant> skillCooltimes = new HashMap<>();
     private final Map<Integer, Integer> damageDone = new HashMap<>();
@@ -53,6 +64,7 @@ public final class Mob extends Life implements ControlledObject, Encodable {
     private int hp;
     private int mp;
     private int summonType;
+    private int mobType;
     private int itemDropCount;
     private boolean slowUsed;
     private int swallowCharacterId;
@@ -62,6 +74,7 @@ public final class Mob extends Life implements ControlledObject, Encodable {
     private Instant nextRecovery;
     private Instant removeAfter;
     private Instant nextDropItem;
+    private boolean dpsDummy = false;
 
     public Mob(MobTemplate template, MobSpawnPoint spawnPoint, int x, int y, int fh) {
         this.template = template;
@@ -76,6 +89,7 @@ public final class Mob extends Life implements ControlledObject, Encodable {
         this.hp = template.getMaxHp();
         this.mp = template.getMaxMp();
         this.summonType = MobAppearType.REGEN.getValue();
+        this.mobType = MobType.NORMAL.getValue();
         this.nextSendMobHp = Instant.MIN;
         this.nextSkillUse = Instant.MIN;
         this.nextRecovery = Instant.now().plus(GameConstants.MOB_RECOVER_TIME, ChronoUnit.SECONDS);
@@ -95,7 +109,16 @@ public final class Mob extends Life implements ControlledObject, Encodable {
         return template.getLevel();
     }
 
+    public int getMobType() { return mobType; }
+
+    public void setMobType(int mobType) {
+        this.mobType = mobType;
+    }
+
     public int getMaxHp() {
+        if (isDpsDummy()) {
+            return Integer.MAX_VALUE;
+        }
         return template.getMaxHp();
     }
 
@@ -121,6 +144,18 @@ public final class Mob extends Life implements ControlledObject, Encodable {
 
     public boolean isDamagedByMob() {
         return template.isDamagedByMob();
+    }
+
+    public boolean isDpsDummy() {
+        return template.getId() == 9001007;
+    }
+
+    public void setDpsDummy(boolean dpsDummy) {
+        this.dpsDummy = dpsDummy;
+    }
+
+    public void suspendReset(boolean suspedReset) {
+
     }
 
     public Map<ElementAttribute, DamagedAttribute> getDamagedElemAttr() {
@@ -375,22 +410,48 @@ public final class Mob extends Life implements ControlledObject, Encodable {
         // Apply damage and show mob hp indicator
         final int actualDamage = Math.min(getHp(), totalDamage);
         damageDone.put(attacker.getCharacterId(), damageDone.getOrDefault(attacker.getCharacterId(), 0) + actualDamage);
-        updateHp(getHp() - actualDamage);
-        // Handle death
-        if (getHp() <= 0) {
-            if (getController() != null) {
-                getController().write(changeControllerPacket(false));
+        if (isDpsDummy()) {
+            long now = System.currentTimeMillis();
+
+            if (attacker.getDpsStart() == -1) {
+                // First hit — start tracking
+                attacker.setDpsStart(now);
+                attacker.setDpsDamage(actualDamage);
+
+                ScheduledFuture<?> task = ServerExecutor.schedule(attacker.getField(), () -> {
+                    long totalDPSDamage = attacker.getDpsDamage();
+                    long elapsed = System.currentTimeMillis() - attacker.getDpsStart();
+                    double dps = elapsed > 0 ? (totalDPSDamage * 1000.0 / elapsed) : 0;
+                    attacker.write(MessagePacket.system(String.format("DPS 15s: %.2f", dps)));
+                    attacker.setDpsStart(-1);
+                    attacker.setDpsDamage(0);
+                    attacker.setDpsTask(null);
+                }, 15, TimeUnit.SECONDS);
+
+                attacker.setDpsTask(task);
+
+            } else {
+                // Still tracking
+                attacker.setDpsDamage(attacker.getDpsDamage() + totalDamage);
             }
-            if (getField().getMobPool().removeMob(this, leaveType)) {
-                distributeExp();
-                dropRewards(attacker, delay);
-                spawnRevives(delay);
-            }
-            if (template.getHpTagColor() != 0 && template.getHpTagBgColor() != 0) {
-                getField().broadcastPacket(FieldEffectPacket.mobHpTag(getId(), 0, getMaxHp(), template.getHpTagColor(), template.getHpTagBgColor()));
-            }
-            if (spawnPoint != null) {
-                spawnPoint.setNextMobRespawn();
+        } else {
+            updateHp(getHp() - actualDamage);
+            // Handle death
+            if (getHp() <= 0) {
+                if (getController() != null) {
+                    getController().write(changeControllerPacket(false));
+                }
+                if (getField().getMobPool().removeMob(this, leaveType)) {
+                    distributeExp(attacker);
+                    dropRewards(attacker, delay);
+                    spawnRevives(delay);
+                }
+                if (template.getHpTagColor() != 0 && template.getHpTagBgColor() != 0) {
+                    getField().broadcastPacket(FieldEffectPacket.mobHpTag(getId(), 0, getMaxHp(), template.getHpTagColor(), template.getHpTagBgColor()));
+                }
+                if (spawnPoint != null) {
+                    spawnPoint.setNextMobRespawn();
+                }
             }
         }
     }
@@ -426,9 +487,9 @@ public final class Mob extends Life implements ControlledObject, Encodable {
      * Exp for other members : (0.4 * level / totalPartyLevel) + partyBonus
      * </pre>
      */
-    private void distributeExp() {
+    private void distributeExp(User attacker) {
         // Calculate exp split based on damage dealt
-        final int totalExp = getExp();
+        final int totalExp = getExp() * Util.getExpRateByMap(attacker.getFieldId());
         final Map<User, Integer> expSplit = new HashMap<>(); // user -> exp
         final Map<Integer, Set<User>> partyMembers = new HashMap<>(); // party id -> members
         for (var entry : damageDone.entrySet()) {
@@ -490,48 +551,50 @@ public final class Mob extends Life implements ControlledObject, Encodable {
             final int exp = entry.getValue();
             final int memberCount = partyMembers.getOrDefault(user.getPartyId(), Set.of()).size();
             final int partyBonus = GameConstants.getPartyBonusExp(exp, memberCount);
-            // Distribute exp
-            if (user.getField() != getField()) {
-                return;
-            }
-            int finalExp = exp;
-            int finalPartyBonus = partyBonus;
-            if (user.getSecondaryStat().hasOption(CharacterTemporaryStat.HolySymbol)) {
-                final int bonus = GameConstants.getHolySymbolBonus(user.getSecondaryStat().getOption(CharacterTemporaryStat.HolySymbol).nOption, memberCount);
-                final double multiplier = (bonus + 100) / 100.0;
-                finalExp = (int) (finalExp * multiplier);
-                finalPartyBonus = (int) (finalPartyBonus * multiplier);
-            }
-            if (user.getSecondaryStat().hasOption(CharacterTemporaryStat.ExpBuffRate)) {
-                final double multiplier = user.getSecondaryStat().getOption(CharacterTemporaryStat.ExpBuffRate).nOption / 100.0;
-                finalExp = (int) (finalExp * multiplier);
-                finalPartyBonus = (int) (finalPartyBonus * multiplier);
-            }
-            if (user.getSecondaryStat().hasOption(CharacterTemporaryStat.Dice)) {
-                final int expR = user.getSecondaryStat().getOption(CharacterTemporaryStat.Dice).getDiceInfo().getInfoArray()[17];
-                if (expR > 0) {
-                    final double multiplier = (expR + 100) / 100.0;
+            ServerExecutor.submit(getField(), () -> {
+                // Distribute exp
+                if (user.getField() != getField()) {
+                    return;
+                }
+                int finalExp = exp;
+                int finalPartyBonus = partyBonus;
+                if (user.getSecondaryStat().hasOption(CharacterTemporaryStat.HolySymbol)) {
+                    final int bonus = GameConstants.getHolySymbolBonus(user.getSecondaryStat().getOption(CharacterTemporaryStat.HolySymbol).nOption, memberCount);
+                    final double multiplier = (bonus + 100) / 100.0;
                     finalExp = (int) (finalExp * multiplier);
                     finalPartyBonus = (int) (finalPartyBonus * multiplier);
                 }
-            }
-            if (finalExp + finalPartyBonus > 0) {
-                user.addExp(finalExp + finalPartyBonus);
-                user.write(MessagePacket.incExp(finalExp, finalPartyBonus, user == highestDamageDone, false));
-            }
-            // Process mob kill for quest
-            for (QuestRecord qr : user.getQuestManager().getStartedQuests()) {
-                final Optional<QuestInfo> questInfoResult = QuestProvider.getQuestInfo(qr.getQuestId());
-                if (questInfoResult.isEmpty()) {
-                    continue;
+                if (user.getSecondaryStat().hasOption(CharacterTemporaryStat.ExpBuffRate)) {
+                    final double multiplier = user.getSecondaryStat().getOption(CharacterTemporaryStat.ExpBuffRate).nOption / 100.0;
+                    finalExp = (int) (finalExp * multiplier);
+                    finalPartyBonus = (int) (finalPartyBonus * multiplier);
                 }
-                final Optional<QuestRecord> questProgressResult = questInfoResult.get().progressQuest(qr, getTemplateId());
-                if (questProgressResult.isEmpty()) {
-                    continue;
+                if (user.getSecondaryStat().hasOption(CharacterTemporaryStat.Dice)) {
+                    final int expR = user.getSecondaryStat().getOption(CharacterTemporaryStat.Dice).getDiceInfo().getInfoArray()[17];
+                    if (expR > 0) {
+                        final double multiplier = (expR + 100) / 100.0;
+                        finalExp = (int) (finalExp * multiplier);
+                        finalPartyBonus = (int) (finalPartyBonus * multiplier);
+                    }
                 }
-                user.write(MessagePacket.questRecord(questProgressResult.get()));
-                user.validateStat();
-            }
+                if (finalExp + finalPartyBonus > 0) {
+                    user.addExp(finalExp + finalPartyBonus);
+                    user.write(MessagePacket.incExp(finalExp, finalPartyBonus, user == highestDamageDone, false));
+                }
+                // Process mob kill for quest
+                for (QuestRecord qr : user.getQuestManager().getStartedQuests()) {
+                    final Optional<QuestInfo> questInfoResult = QuestProvider.getQuestInfo(qr.getQuestId());
+                    if (questInfoResult.isEmpty()) {
+                        continue;
+                    }
+                    final Optional<QuestRecord> questProgressResult = questInfoResult.get().progressQuest(qr, getTemplateId());
+                    if (questProgressResult.isEmpty()) {
+                        continue;
+                    }
+                    user.write(MessagePacket.questRecord(questProgressResult.get()));
+                    user.validateStat();
+                }
+            });
         }
     }
 
@@ -569,7 +632,7 @@ public final class Mob extends Life implements ControlledObject, Encodable {
             return Optional.empty();
         }
         // Drop probability
-        double probability = reward.getProb();
+        double probability = reward.getProb() * Util.getDropRateByMap(owner.getFieldId());
         if (owner.getSecondaryStat().hasOption(CharacterTemporaryStat.ItemUpByItem)) {
             final double multiplier = (owner.getSecondaryStat().getOption(CharacterTemporaryStat.ItemUpByItem).nOption + 100) / 100.0;
             probability = probability * multiplier;
@@ -583,7 +646,7 @@ public final class Mob extends Life implements ControlledObject, Encodable {
         }
         // Create drop
         if (reward.isMoney()) {
-            int money = Util.getRandom(reward.getMin(), reward.getMax());
+            int money = Util.getRandom(reward.getMin(), reward.getMax()) * Util.getMesoRateByMap(owner.getFieldId());
             if (money <= 0) {
                 return Optional.empty();
             }
@@ -636,7 +699,7 @@ public final class Mob extends Life implements ControlledObject, Encodable {
                         getFoothold()
                 );
                 reviveMob.setLeft(isLeft());
-                reviveMob.setSummonType(MobAppearType.REVIVED.getValue());
+                reviveMob.setSummonType(MobAppearType.REGEN.getValue());
                 getField().getMobPool().addMob(reviveMob);
             }
         }, template.getReviveDelay() + delay, TimeUnit.MILLISECONDS);
@@ -688,5 +751,15 @@ public final class Mob extends Life implements ControlledObject, Encodable {
         outPacket.encodeByte(0); // nTeamForMCarnival
         outPacket.encodeInt(0); // nEffectItemID
         outPacket.encodeInt(0); // nPhase
+    }
+
+    @Override
+    public void lock() {
+        lock.lock();
+    }
+
+    @Override
+    public void unlock() {
+        lock.unlock();
     }
 }

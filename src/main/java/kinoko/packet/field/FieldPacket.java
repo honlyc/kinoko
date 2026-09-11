@@ -101,8 +101,8 @@ public final class FieldPacket {
         return outPacket;
     }
 
-
     // CEmployeePool::OnPacket -----------------------------------------------------------------------------------------
+
 
     public static OutPacket employeeEnterField(EntrustedShop shop) {
         final OutPacket outPacket = OutPacket.of(OutHeader.EmployeeEnterField);
@@ -143,7 +143,6 @@ public final class FieldPacket {
         outPacket.encodeByte(shop.isGameOn()); // bGameOn
         return outPacket;
     }
-
 
     // CDropPool::OnPacket ---------------------------------------------------------------------------------------------
 
@@ -286,7 +285,7 @@ public final class FieldPacket {
     }
 
     public static OutPacket reactorLeaveField(Reactor reactor) {
-        final OutPacket outPacket = OutPacket.of(OutHeader.ReactorLeaveField);
+        final OutPacket outPacket = OutPacket.of(OutHeader.ReactorEnterField);
         outPacket.encodeInt(reactor.getId());
         outPacket.encodeByte(reactor.getState()); // nState
         outPacket.encodeShort(reactor.getX()); // ptPos.x

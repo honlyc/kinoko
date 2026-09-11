@@ -61,11 +61,9 @@ public final class Client extends NettyClient {
                 DatabaseManager.accountAccessor().saveAccount(account);
             }
         } else if (!user.isInTransfer()) {
-            try {
-                user.logout(true);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            user.logout(true);
+            DatabaseManager.accountAccessor().setLoggedStatus(account, false);
+            DatabaseManager.activeMachineAccessor().removeInstance(account.getId());
             DatabaseManager.accountAccessor().saveAccount(account);
             DatabaseManager.characterAccessor().saveCharacter(user.getCharacterData());
         }

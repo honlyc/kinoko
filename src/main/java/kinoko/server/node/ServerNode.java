@@ -1,16 +1,19 @@
 package kinoko.server.node;
 
+import kinoko.util.Util;
 import kinoko.world.user.Account;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class ServerNode extends Node {
+    private static final Logger log = LogManager.getLogger(ServerNode.class);
     protected static final AtomicInteger requestIdCounter = new AtomicInteger(1);
     protected final ConcurrentHashMap<Integer, CompletableFuture<?>> requestFutures = new ConcurrentHashMap<>();
     protected final ClientStorage clientStorage = new ClientStorage();
-
     public abstract boolean isInitialized();
 
     public int getNewRequestId() {
