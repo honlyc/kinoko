@@ -27,7 +27,7 @@ public class CapLatanica extends ScriptHandler {
     public static void captinsg01(ScriptManager sm) {
         // Bob : Ghost Ship Keeper (9270033)
         //   Singapore : The Engine Room (541010100)
-        if(sm.askYesNo("I can help you escape his wrath... do you want to leave?")) {
+        if(sm.askYesNo("我可以帮你避开他的怒火……你想离开吗？")) {
             sm.setReactorState(5411000, 0);
             sm.warp(541010110);
         }

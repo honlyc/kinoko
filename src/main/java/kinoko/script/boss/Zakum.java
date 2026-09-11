@@ -39,37 +39,37 @@ public class Zakum extends ScriptHandler {
         //   Dead Mine : The Door to Chaos Zakum (211042301)
         AtomicBoolean shouldStop = new AtomicBoolean(false);
         if (sm.getLevel() < 50) {
-            sm.sayOk("Please come back to me when you've become stronger.  I've seen a few adventurers in my day, and you're far too weak to complete my tasks.");
+            sm.sayOk("等你变强了再来找我。我这辈子见过不少冒险家，但你实在太弱了，根本无法完成我的任务。");
             return;
         }
 
         // Initial dialog
-        sm.sayOk("Shhhh ... be quiet. Deep in the dungeon rests a powerful foe. Complete the quests in order of the level, and you'll be able to meet the boss of the Zakum Dungeon. It won't be easy, at all ... but try your best.");
+        sm.sayOk("嘘……安静点。地牢深处沉睡着一个强大的敌人。按照等级顺序完成任务，你就能见到扎库姆地牢的BOSS了。这绝非易事……但请尽力而为。");
 
         // Ask the player which quest they want to complete
-        int choice = sm.askMenu("Well ... alright. You seem more than qualified for this. Which of these tasks do want to tackle on?#b", Map.of(
-                0, "Explore the Dead Mine. (Level 1)",
-                1, "Observe the Zakum Dungeon. (Level 2)",
-                2, "Request for a refinery. (Level 3)",
-                3, "Get briefed for the quest.")
+        int choice = sm.askMenu("嗯……好吧。你看起来完全有能力胜任这个工作。你想先处理哪些任务呢？#b", Map.of(
+                0, "探索死亡矿井。（第1关）",
+                1, "勘察扎库姆地牢。（第2关）",
+                2, "请求精炼物品。（第3关）",
+                3, "了解任务简报。")
         );
 
         switch (choice) {
             case 0:
                 if (sm.getQRValue(QuestRecordType.ZakumPreqStageOne).equals("3")) {
-                    sm.sayOk("You have already looked through the Cave at the Dead Mine three times today and therefore I cannot let you in once more. Please come back tomorrow.");
+                    sm.sayOk("你今天已经三次进入死亡矿洞的洞穴了，因此我不能再让你进去了。请明天再来。");
                     return;
                 }
 
                 // Check if at a party of at least 1 with level 50
                 if (!sm.checkParty(1, 50)) {
-                    sm.sayOk("You are not currently in a party right now. You may only tackle this assignment as a party.");
+                    sm.sayOk("您当前未加入任何队伍。您只能以队伍的形式完成此任务。");
                     return;
                 }
 
                 if(!sm.getUser().isPartyLeader()) {
-                    sm.sayNext("This journey will be a never ending maze of quests you won't be able to solve by yourself. But if you're willing to take on the challenge, then talk to the chief of your occupation at the Chief's Residence in El Nath to receive the quest.");
-                    sm.sayBoth("After receiving the quest, either join a party or form one yourself, and have the leader of the party speak to me to start the quest. Once you are ready, have the leader of the party come up and talk to me.");
+                    sm.sayNext("这段旅程将是一个永无止境的迷宫，其中的任务你无法独自完成。但如果你愿意接受挑战，那么请前往艾尔纳斯的酋长官邸，与你的职业酋长交谈以领取任务。");
+                    sm.sayBoth("接到任务后，你可以选择加入一个队伍，或者自己组建一个队伍，然后让队伍的队长与我对话以开始任务。准备好后，请让队伍的队长来找我并对话。");
                     return;
                 }
 
@@ -82,7 +82,7 @@ public class Zakum extends ScriptHandler {
                         final User partyMember = lockedMember.get();
 
                         if (!partyMember.getQuestManager().hasQuestStarted(7000000)) {
-                            sm.message("There's a member of your party that hasn't received the quest from the chief of the occupation at El Nath.");
+                            sm.message("你的队伍中有成员还没有在艾尔纳斯的职业酋长那里领取任务。");
                             shouldStop.set(true);
                             break;
                         }
@@ -112,7 +112,7 @@ public class Zakum extends ScriptHandler {
             case 1:
                 // Check if at a party of at least 1 with level 50
                 if (!sm.checkParty(1, 50)) {
-                    sm.sayOk("You are not currently in a party right now. You may only tackle this assignment as a party.");
+                    sm.sayOk("您当前未加入任何队伍。您只能以队伍的形式完成此任务。");
                     return;
                 }
 
@@ -128,7 +128,7 @@ public class Zakum extends ScriptHandler {
                 });
 
                 if (!sm.hasQuestCompleted(100200) || shouldStop.get()) {
-                    sm.sayOk("It doesn't look like you or someone from your party have cleared the previous stage yet. Please beat the previous stage before moving onto the next level.");
+                    sm.sayOk("看起来你或你的队伍中还没有人通关上一关。请先通关上一关，再进入下一关。");
                     return;
                 }
 
@@ -144,7 +144,7 @@ public class Zakum extends ScriptHandler {
                 });
 
                 if(sm.hasQuestStarted(100200) || shouldStop.get()) {
-                    sm.sayOk("It seems like you or someone from your party in the middle of the 1st stage. You must first clear this one before moving on to Level 2. Please clear the 1st stage first.");
+                    sm.sayOk("看起来你或你们队伍中的某个人在第一关的中途。你必须先通关这一关，才能进入第二关。请先通关第一关。");
                     return;
                 }
 
@@ -159,23 +159,23 @@ public class Zakum extends ScriptHandler {
                 });
 
                 if (sm.hasQuestStarted(100201) || shouldStop.get()) {
-                    if(!sm.askYesNo("Hmmm ... you or someone from your party must have tried this quest before and gave up midway through. What do you think? Do you want to retry this level?")) {
-                        sm.sayOk("I see ... but if you ever decide to change your mind, then talk to me.");
+                    if(!sm.askYesNo("嗯……你或者你们队伍中的某个人之前肯定尝试过这个任务，但中途放弃了。你怎么看？你想重试这个关卡吗？")) {
+                        sm.sayOk("我明白了……但如果你决定改变主意，请告诉我。");
                         return;
                     }
                 } else if (sm.hasQuestCompleted(100201) || shouldStop.get()) {
-                    if(!sm.askYesNo("Hmmm ... You or someone from your party have already cleared this level before. For you to be rewarded again, you need to restart the quest from Level 1. Otherwise, you will still be able to do the quest but will not be rewarded. Do you still want to retry this level?")) {
-                        sm.sayOk("I see ... but if you ever decide to change your mind, then talk to me.");
+                    if(!sm.askYesNo("嗯……你或你的队伍中有人已经通关过这一关。如果你想要再次获得奖励，你需要从第一关重新开始任务。否则，你仍然可以完成任务，但不会获得奖励。你还想重试这一关吗？")) {
+                        sm.sayOk("我明白了……但如果你决定改变主意，请告诉我。");
                         return;
                     }
                 }
 
-                if (!sm.askYesNo("You have safely cleared the 1st stage. There's still a long way to go before meeting the boss of Zakum Dungeon, however. So, what do you think? Are you ready to move on to the next stage?")) {
-                    sm.sayOk("I see ... but if you ever decide to change your mind, then talk to me.");
+                if (!sm.askYesNo("你已经安全通过了第一关。不过，在遇到扎库姆地牢的BOSS之前，还有很长的路要走。那么，你怎么看？你准备好进入下一关了吗？")) {
+                    sm.sayOk("我明白了……但如果你决定改变主意，请告诉我。");
                     return;
                 }
 
-                sm.sayNext("Alright! From here on out, you'll be transported to the map where obstacles will be aplenty. There will be a person standing at the deepest part of the map, and if you talk to her, you'll find an item that will be used as a material to create an item that summons the boss of Zakum Dungeon. Please get me that item. Good luck!");
+                sm.sayNext("好的！从现在开始，你将传送至一个地图，那里障碍重重。地图的最深处会站着一个人，如果你与她对话，你将获得一个物品，该物品可以作为材料来制作一个能召唤扎库姆地牢首领的物品。请帮我拿到那个物品。祝你好运！");
                 sm.forceStartQuest(100201);
                 sm.getField().getUserPool().forEachPartyMember(sm.getUser(), (member) -> {
                     try (var lockedMember = member.acquire()) {
@@ -192,50 +192,50 @@ public class Zakum extends ScriptHandler {
             case 2:
                 // Check if at a party of at least 1 with level 50
                 if (!sm.checkParty(1, 50)) {
-                    sm.sayOk("You are not currently in a party right now. You may only tackle this assignment as a party.");
+                    sm.sayOk("您当前未加入任何队伍。您只能以队伍的形式完成此任务。");
                     return;
                 }
 
                 // Same logic as Quest 2 for Quest 3
                 if (!sm.hasQuestCompleted(100201)) {
-                    sm.sayOk("Hmmm ... I don't think you have cleared the previous stage, yet. Please beat the previous stage before moving onto the next level.");
+                    sm.sayOk("嗯……我觉得你还没有通过上一关。请先通关上一关，再进入下一关。");
                     return;
                 }
 
                 if (sm.hasQuestStarted(100202)) {
                     if (!sm.hasItem(4000082, 30)) {
-                        sm.sayOk("I don't think you have #b30 Zombie's Lost Gold Teeth#k yet. Gather them all up and I may be able to refine them and make a special item for you ...");
+                        sm.sayOk("我觉得你还没有#b30个僵尸丢失的金牙#k。把它们都收集起来，我或许能提炼它们，为你制作一件特殊物品……");
                         return;
                     }
-                    sm.sayNext("Ha ha ha, don't worry, I'll make it in a heartbeat!");
+                    sm.sayNext("哈哈哈，别担心，我马上就能搞定！");
                     if(!sm.hasItem(4000082, 30) || !sm.hasItem(4001018, 1) || !sm.hasItem(4031062, 1) || !sm.canAddItem(4001017, 1)) {
-                        sm.sayOk("Hmmm... are you sure you have all the items required to make #rEye of Fire#k with you? If so, then please check and see if your etc. inventory is full or not.");
+                        sm.sayOk("嗯……你确定你带齐了制作#r火之眼#k所需的所有物品吗？如果带了，请检查一下你的物品栏是否已满。");
                         return;
                     }
 
                     sm.addItem(4001017, 5); // Eye of Fire
                     sm.forceCompleteQuest(100202);
-                    sm.sayOk("Here it is. You will now be able to enter the alter of the Zakum Dungeon when the door on the left is open.. You'll need\\r\\n#b#t4001017##k with you in order to go through the door and enter the stage. Now, let's see how many can enter this place ...?");
+                    sm.sayOk("到了。当左边的门打开时，你现在可以进入扎库姆地牢的祭坛了。你需要\\r\\n#b#t4001017##k才能穿过门进入舞台。现在，让我们看看有多少人能进入这个地方……？");
                 }
                 else if (sm.hasQuestCompleted(3)) {
-                    if (!sm.askYesNo("Hmmm ... aren't you the one who refined #b#t4001017##k before? Then what can I do for you? Are you interested in mixing #b#t4031061##k with #b#t4031062##k again to create #b#t4001017##k?")) {
-                        sm.sayOk("I see ... but please be aware that you won't be able to see the boss of Zakum Dungeon without the #b#t4001017##k.");
+                    if (!sm.askYesNo("嗯……你不是之前精炼过#b#t4001017##k的那位吗？那么我能为你做些什么呢？你是否对再次将#b#t4031061##k与#b#t4031062##k混合以创造#b#t4001017##k感兴趣？")) {
+                        sm.sayOk("我明白了……但请注意，如果没有#b#t4001017##k，你将无法见到扎库姆地下城的头目。");
                         return;
                     }
-                    sm.sayOk("Hmmm, by mixing #b#t4031061##k with #b#t4031062##k, I can make an the item that will be used as a sacrifice to summon the boss, called #b#t4001017##k. The problem is ... (cough cough) as you can see, I am not feeling terribly well these days, so it's difficult for me to move around and gather up items. Well ... will it be ok for you to gather up #b30 Zombie's Lost Gold Teeth#k for me? Don't ask me where I'll be using it, though ...");
+                    sm.sayOk("嗯，通过将#b#t4031061##k与#b#t4031062##k混合，我可以制作出一个用来召唤首领的祭品，叫做#b#t4001017##k。问题是……（咳嗽咳嗽）如你所见，我最近感觉不太好，所以很难四处走动收集物品。嗯……你能帮我收集#b30个僵尸丢失的金牙#k吗？不过别问我打算在哪里使用它……");
                     sm.forceStartQuest(100202);
                 }
                 else {
-                    sm.sayOk("Hmmm, by mixing #b#t4031061##k with #b#t4031062##k, I can make an the item that will be used as a sacrifice to summon the boss, called #b#t4001017##k. The problem is ... (cough cough) as you can see, I am not feeling terribly well these days, so it's difficult for me to move around and gather up items. Well ... will it be ok for you to gather up #b30 Zombie's Lost Gold Teeth#k for me? Don't ask me where I'll be using it, though ...");
+                    sm.sayOk("嗯，通过将#b#t4031061##k与#b#t4031062##k混合，我可以制作出一个用来召唤首领的祭品，叫做#b#t4001017##k。问题是……（咳嗽咳嗽）如你所见，我最近感觉不太好，所以很难四处走动收集物品。嗯……你能帮我收集#b30个僵尸丢失的金牙#k吗？不过别问我打算在哪里使用它……");
                     sm.forceStartQuest(100202);
                 }
                 break;
 
             case 3:
-                sm.sayNext("Not sure where to start? In order to do this quest, you'll have to receive the approval from the chief of your occupation. I do not want to be scolded later on for letting someone in without going through the proper procedure. The only ones that I can let in are the party full of members that have received the approval.");
-                sm.sayBoth("Complete the quests in order of the level, and you'll be able to meet the boss of the Zakum Dungeon. Gather up the items I'll request from you, and I'll make them into a sacrificial item. Place the sacrificial item at the altar, and you'll get to see what you've come to see. To do that, first look through the Dead Mine and bring back #b#t4001018##k.");
-                sm.sayBoth("There, other than #b#t4001018##k, you'll also find Paper documents. Give that to #b#p2032002##k, and you may get something helpful in return along with Piece of Fire ore. Next, go across the lava area and find #b#t4031062##k. It'll be a treacherous road to take, but ... it's a must item, in terms of making a sacrificical item.");
-                sm.sayBoth("Once you have gotten #b#t4031062##k, you'll need to refine the #bPieces of Fire ore#k and #b#t4031062#s#k that you have acquired at level 1 and 2. Don't worry about it, though; I can refine them for you. Once you've completed them all, all you'll have left to do is to meet the boss of Zakum Dungeon. It won't be easy, at all ... but try your best.");
+                sm.sayNext("不知道从哪里开始吗？为了完成这个任务，你必须得到你所在职业的负责人的批准。我不想因为未经正当程序就让人进来而事后受到责备。我只能让那些已经获得批准的成员组成的团队进来。");
+                sm.sayBoth("按照等级顺序完成任务，你就能见到扎库姆地下城的BOSS。收集我向你要的物品，我会把它们做成祭品。把祭品放在祭坛上，你就能看到你想看的东西。为此，先在死亡矿井里搜寻，带回#b#t4001018##k。");
+                sm.sayBoth("在那里，除了#b#t4001018##k，你还会找到纸质文件。把它交给#b#p2032002##k，你可能会得到一些有用的东西，以及一块火矿石。接下来，穿过熔岩区，找到#b#t4031062##k。这将是一条危险的道路，但……就制作祭祀物品而言，这是必需品。");
+                sm.sayBoth("一旦你获得了#b#t4031062##k，你需要精炼你在1级和2级时获得的#b火矿石碎片#k和#b#t4031062##k。不过别担心，我可以帮你精炼。一旦你全部完成，剩下的任务就是去见扎库姆地牢的BOSS。这并不容易，但请尽力而为。");
                 break;
             default:
                 return;
@@ -246,43 +246,43 @@ public class Zakum extends ScriptHandler {
     public static void zakum01(ScriptManager sm) {
         // Aura (2032002)
         //   Adobis's Mission I : Unknown Dead Mine (280010000)
-        sm.sayNext("You are the one who wanted to investigate the Dead Mine. You need to gather up the necessary items to reach the point of your final goal: meeting the boss of the Zakum Dungeon. To obtain that item, you'll first need to acquire the materials for that item, right? You can get one of the materials, #b#t4031061##k, right here. It won't be easy, though ...");
-        sm.sayNext("Here, there is an entrance that leads to numerous caves. Once inside the cave, you'll see some boxes. Destroy them all, and collect #b7 of #t4001016#s#k. The box cannot be destroyed using attack skills; only the regular, basic attack works. Afterwards, gather up the 7 keys, move into the innermost room, where the treasure chest is. Drop the keys there to obtain #b#t4031061##k. It'll take some time after dropping the keys to obtain it, so be patient.");
-        sm.sayNext("Of course, not every box contains #t4001016#. You'll all run into some very unexpected circumstances, so please be aware of that. Every once in a while, in the middle of going through the boxes, #t4001015# will pop out. Gather those up, too, and something good will definitely happen. You need to collect at least 30 #t4001015#s. This is all I can tell you, for now.");
-        final int answer = sm.askMenu("Anything do you want to ask?", Map.of(
-                0, "I brought #t4031061#.",
-                1, "Forget the quest, I'm out of here."
+        sm.sayNext("你是那个想要调查死亡矿井的人。你需要收集必要的物品，以达到你的最终目标：与扎库姆地牢的BOSS会面。为了获得那个物品，你首先需要获得制作该物品的材料，对吧？你可以在这里获得其中一种材料#b#t4031061##k，不过这并不容易……");
+        sm.sayNext("这里有一个入口，通往许多洞穴。进入洞穴后，你会看到一些箱子。将它们全部摧毁，并收集#t4001016#s#k中的#b7个。攻击技能无法摧毁箱子，只有普通的、基本的攻击才有效。之后，收集7把钥匙，进入最里面的房间，那里有宝箱。将钥匙投入宝箱中，即可获得#b#t4031061##k。投入钥匙后需要等待一段时间才能获得，所以请耐心等待。");
+        sm.sayNext("当然，并不是每个盒子里都装有#t4001016#。你们都会遇到一些非常意外的情况，所以请注意这一点。偶尔，在整理盒子的过程中，#t4001015#会突然出现。把它们也收集起来，肯定会有好事发生。你们至少需要收集30个#t4001015#。目前我只能告诉你们这些。");
+        final int answer = sm.askMenu("你有什么问题要问吗？", Map.of(
+                0, "我把#t4031061#带来了。",
+                1, "算了，不做任务了，我要离开这里。"
         ));
 
         if(answer == 0) {
             if (!sm.getQRValue(QuestRecordType.ZakumPreqStageOne).equals(sm.getUser().getCharacterName())) {
-                sm.sayOk("Once you have obtained #b#t4031061##k by dropping 7 #b#t4001016#s#k at the huge chest in the cave, please hand the item over to the party leader. Once the leader of the party has #b#t4031061##k in possession and talks to me, that'll signal that you have cleared Level 1.");
+                sm.sayOk("一旦你在洞穴中的巨大宝箱处投入7个#b#t4001016#s#k，获得#b#t4031061##k，请将该物品交给队伍队长。当队伍队长持有#b#t4031061##k并与我对话时，即表示你已通关第一关。");
                 return;
             }
 
             if(!sm.hasItem(4031061, 1)) {
-                sm.sayOk("I guess you haven't gotten #b#t4031061##k yet. Please go through the various treasure chests in here within the time limit, collect #b7 of #t4001016#s#k, and drop them all at the treasure chest in the innermost part of the cave to collect #b#t4031061##k. Once you have obtained the item, please hand it to me.");
+                sm.sayOk("我猜你还没拿到#b#t4031061##k吧。请在规定时间内搜遍这里的各个宝箱，收集#t4001016#s#k中的#b7个，并将它们全部投放到洞穴最深处的宝箱中，以收集#b#t4031061##k。一旦你获得该物品，请交给我。");
                 return;
             }
 
             if(!sm.hasItem(4001015)) {
-                if(!sm.askYesNo("You brought back #b1 #t4031061##k safely, but it doesn't look like you have brought #b#t4001015# back. Is this all your party has gathered up?")) {
-                    sm.sayOk("All the items collected from the cave by the party members should be given to the party leader, who'll give them all to me. Please double-check.");
+                if(!sm.askYesNo("你安全地带回了#b1个#t4031061##k，但看起来你并没有带回#b#t4001015#。这就是你们团队收集到的全部吗？")) {
+                    sm.sayOk("队员们从山洞里收集到的所有物品都应该交给队长，然后队长会全部交给我。请再仔细检查一遍。");
                     return;
                 }
             } else {
-                if (!sm.askYesNo("You have brought back #b1 #t4031061##k and #b" + sm.getItemCount(4001015) + " #t4001015#s#k. Is this all the items your party members have gathered up?")) {
-                    sm.sayOk("All the items collected from the cave by the party members should be given to the party leader, who'll give them all to me. Please double-check.");
+                if (!sm.askYesNo("你带回了#b1个#t4031061##k和#b" + sm.getItemCount(4001015) + "个#t4001015##k。这是你们队伍成员收集到的所有物品吗？")) {
+                    sm.sayOk("队员们从山洞里收集到的所有物品都应该交给队长，然后队长会全部交给我。请再仔细检查一遍。");
                     return;
                 }
             }
 
             if(!sm.removeItem(4031061, 1)) {
-                sm.sayOk("Please check and see if you have #b1 #t4031061##k with you.");
+                sm.sayOk("请检查并确认您是否携带了#b1个#t4031061##k。");
                 return;
             }
 
-            sm.sayOk("Alright. Using the portal that's been made down there, you can return to the map where Adobis is. While using the portal, I'll be handing out #b#t4001018##k made out of #b#t4031061##k you've all given me to each and every member of the party. Congratulations on clearing Level 1. See you around ...");
+            sm.sayOk("好的。利用下面建好的传送门，你们可以回到阿多比斯所在的地图。在使用传送门时，我会把用你们交给我的#b#t4031061##k制成的#b#t4001018##k分发给队伍里的每一位成员。恭喜你们通关第一关。再见……");
 
             sm.forceCompleteQuest(100200);
             sm.getField().getUserPool().forEachPartyMember(sm.getUser(), (member) -> {
@@ -293,8 +293,8 @@ public class Zakum extends ScriptHandler {
                 }
             });
         } else if(answer == 1) {
-            if (sm.askYesNo("If you quit in the middle of a mission, you'll have to start all over again ... not only that, but since it's a party quest, even if one player decides to leave, it may be difficult to clear the level. Are you SURE you want to leave?")) {
-                sm.sayOk("Alright, I'll send you to the Exit Map. #b#p2030011##k will be there standing. Go talk to him; He'll let you out. So long...");
+            if (sm.askYesNo("如果你在任务进行到一半时退出，你将不得不重新开始……不仅如此，由于这是一个团队任务，即使只有一个玩家决定离开，也可能很难通关。你确定要离开吗？")) {
+                sm.sayOk("好的，我会把你送到出口地图那里。#b#p2030011##k会在那里等你。去跟他说话，他会带你出去。再见……");
                 sm.partyWarp(280090000, "st00");
             }
         }
@@ -336,14 +336,14 @@ public class Zakum extends ScriptHandler {
         //   ps01 (440, 193)
         if(sm.hasQuestCompleted(100200)) {
             if(!sm.canAddItem(4001018, 1)) {
-                sm.sayOk("Please make room for the #b#t4001018##k.");
+                sm.sayOk("请为#b#t4001018##k腾出空间。");
                 return;
             }
 
             sm.addItem(4001018, 1);
             sm.warp(211042300, "sp");
         } else {
-            sm.message("Currently, this portal doesn't work.");
+            sm.message("目前，这个传送门无法使用。");
         }
     }
 
@@ -352,9 +352,9 @@ public class Zakum extends ScriptHandler {
         // Ali (2030011)
         //   Adobis's Mission I : The Room of Tragedy (280090000)
         if(sm.hasItem(4031061, 1)) {
-            sm.sayOk("Great job clearing level 1! Alright ... I'll send you off to where #b#p2030008##k is. Before that!! Please be aware that the various, special items you have acquired here will not be carried out of here. I'll be taking away those items from your item inventory, so remember that. See ya!");
+            sm.sayOk("恭喜你成功通关第一关！好的……我会把你送到#b#p2030008##k所在的位置。在那之前！请注意，你在这里获得的各种特殊物品将无法带出这里。我会从你的物品栏中移除这些物品，请牢记。再见！");
         } else {
-            sm.sayOk("Must have quit midway through. Alright, I'll send you off right now. Before that!! Please be aware that the various, special items you have acquired here will not be carried out of here. I'll be taking away those items from your item inventory, so remember that. See ya!");
+            sm.sayOk("他肯定中途退出了。好的，我马上送你离开。在那之前！请注意，你在这里获得的各种特殊物品将无法带出这里。我会从你的物品栏中移除这些物品，请记住这一点。再见！");
         }
         sm.removeItem(4001015);
         sm.removeItem(4001016);
@@ -382,9 +382,9 @@ public class Zakum extends ScriptHandler {
     public static void zakum02(ScriptManager sm) {
         // Lira (2032003)
         //   Adobis's Mission I : Breath of Lava <Level 2> (280020001)
-        sm.sayNext("How did you go through such treacherous road to get here?? Incredible! #b#t4031062##k is here. Please give this to my brother. You'll finally be meeting up with the one you've been looking for, very soon.");
+        sm.sayNext("你是如何走过如此艰险的道路来到这里的？太不可思议了！#b#t4031062##k已经到了。请把这个交给我哥哥。你很快就会见到你一直在寻找的人了。");
         if(!sm.canAddItem(4031062, 1)) {
-            sm.sayOk("Your ETC inventory seems to be full. Please make room in order to receive the item.");
+            sm.sayOk("您的ETC库存似乎已满。请腾出空间以便接收物品。");
             return;
         }
 
@@ -404,11 +404,11 @@ public class Zakum extends ScriptHandler {
         if (sm.getFieldId() == 280030000) {
             boolean exit = false;
             if(sm.getQRValue(QuestRecordType.Zakum).equals("1")) {
-                exit = sm.askYesNo("Are you sure you want to leave this place? You are entitled to enter the Zakum Altar up to twice a day, and by leaving right now, you may only re-enter this shrine once more for the rest of the day.");
+                exit = sm.askYesNo("你确定要离开这里吗？你每天最多可以进入扎库姆祭坛两次，如果现在离开，当天余下时间里你只能再次进入这座神殿一次。");
             } else if(sm.getQRValue(QuestRecordType.Zakum).equals("2")) {
-                exit = sm.askYesNo("Are you sure you want to leave this place? You are entitled to enter the Zakum Altar up to twice a day, and since you have been here twice already, you will be denied entrance to this shrine for the rest of the day by leaving right now.");
+                exit = sm.askYesNo("你确定要离开这里吗？你每天最多可以进入扎库姆祭坛两次，既然你已经来过两次了，如果你现在离开，当天余下的时间里将无法再次进入这座神祠。");
             } else {
-                sm.sayOk("How did you??? This is bonkers. Get out of here...");
+                sm.sayOk("你怎么能这样？这太疯狂了。快离开这里……");
                 exit = true;
             }
 
@@ -416,7 +416,7 @@ public class Zakum extends ScriptHandler {
                 sm.partyWarp(211042300, "sp");
             }
         } else {
-            if (sm.askYesNo("Are you sure you want to quit and leave this place? Next time you come back in, you'll have to start all over again.")) {
+            if (sm.askYesNo("你确定要退出并离开这里吗？下次再来时，你将不得不从头开始。")) {
                 sm.partyWarp(211042300, "sp");
             }
         }
@@ -429,7 +429,7 @@ public class Zakum extends ScriptHandler {
         // Dead Mine : The Door to Chaos Zakum (211042301)
         //   ps00 (-722, -217)
         if(!sm.hasQuestCompleted(100202)) {
-            sm.sayOk("You may only enter this place after clearing level 3. You'll also need to have the Eye of Fire in possession.");
+            sm.sayOk("你只有在通过第三关后才能进入这个地方。同时，你还需要持有火之眼。");
             return;
         }
 
@@ -443,7 +443,7 @@ public class Zakum extends ScriptHandler {
         // boss (2111001)
         //   Last Mission : Zakum's Altar (280030000)
         sm.soundEffect("Bgm06/FinalFight");
-        sm.broadcastMessage("Zakum is summoned by the force of eye of fire.");
+        sm.broadcastMessage("扎库姆被火之眼的力量召唤出来了。");
         sm.spawnMob(8800000, MobAppearType.SUSPENDED, -11, -215, false, MobType.PARENT_MOB);
         for (int i = 0; i < 8; i++) {
             sm.spawnMob(8800003 + i, MobAppearType.REGEN, -11, -215, false, MobType.SUB_MOB);

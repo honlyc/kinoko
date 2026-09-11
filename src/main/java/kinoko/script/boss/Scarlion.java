@@ -12,7 +12,7 @@ public class Scarlion extends ScriptHandler {
     public static void MalaysiaBossGL(ScriptManager sm) {
         // Aldol (9270047)
         //   Malaysia : Entrance to the Spooky World (551030100)
-        if(sm.askYesNo("Do you want to go to the Spooky World Entrance?")) {
+        if(sm.askYesNo("你想去幽灵世界入口吗？")) {
             sm.partyWarpInstance(551030200, "sp", 551030100, 60 * 60);
         }
     }
@@ -37,7 +37,7 @@ public class Scarlion extends ScriptHandler {
     public static void malayWarp(ScriptManager sm) {
         // Aldol (9201134)
         //   Malaysia : Spooky World (551030200)
-        if(sm.askYesNo("Do you want to go out?")) {
+        if(sm.askYesNo("你想出去吗？")) {
             sm.getField().reset();
             sm.partyWarp(551030100, "sp");
         }

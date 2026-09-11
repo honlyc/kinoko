@@ -348,18 +348,6 @@ public final class EvanQuest extends ScriptHandler {
         sm.warp(100030400, "east00");
     }
 
-    @Script("enterDollcave")
-    public static void enterDollcave(ScriptManager sm) {
-        // South Rocky Mountain : Rocky Wasteland (102010100)
-        //   in00 (502, 1901)
-        if (sm.hasQuestStarted(22549) || sm.hasQuestCompleted(22549)) {
-            sm.playPortalSE();
-            sm.warp(910050300, "out00");
-            return;
-        }
-        sm.message("A mysterious force prevents you from entering.");
-    }
-
     @Script("evanGolemDoor")
     public static void evanGolemDoor(ScriptManager sm) {
         // Singing Mushroom Forest : Windflower Forest (100020200)

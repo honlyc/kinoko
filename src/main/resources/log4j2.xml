@@ -32,7 +32,7 @@
             <AppenderRef ref="FileLogger"/>
         </Logger>
 
-        <Root level="error">
+        <Root level="trace">
             <AppenderRef ref="ConsoleLogger"/>
             <AppenderRef ref="FileLogger"/>
         </Root>

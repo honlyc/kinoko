@@ -14,6 +14,7 @@ import kinoko.server.field.Instance;
 import kinoko.server.field.InstanceStorage;
 import kinoko.server.guild.GuildBoardRequest;
 import kinoko.server.guild.GuildRequest;
+import kinoko.server.handler.ChannelServerHandler;
 import kinoko.server.messenger.MessengerRequest;
 import kinoko.server.migration.MigrationInfo;
 import kinoko.server.migration.TransferInfo;
@@ -132,7 +133,6 @@ public final class ChannelServerNode extends ServerNode {
             submitPartyRequest(user, PartyRequest.withdrawParty());
             user.setPartyInfo(null);
         }
-        centralClientFuture.channel().writeAndFlush(CentralPacket.userDisconnect(RemoteUser.from(user)));
         centralClientFuture.channel().writeAndFlush(CentralPacket.userDisconnect(RemoteUser.from(user)));
     }
 
@@ -265,14 +265,7 @@ public final class ChannelServerNode extends ServerNode {
         // Start channel server
         final ChannelServerNode self = this;
         channelServerFuture = startServer(new PacketChannelInitializer(new ChannelPacketHandler(), self), channelPort);
-
-        new Thread(() -> {
-            try {
-                channelServerFuture.sync();
-            } catch (InterruptedException e) {
-                log.error("Channel server sync interrupted", e);
-            }
-        }).start();
+        channelServerFuture.sync();
 
         log.info("Channel {} listening on port {}", channelId + 1, channelPort);
 

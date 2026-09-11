@@ -7,6 +7,7 @@ import kinoko.packet.CentralPacket;
 import kinoko.packet.stage.LoginPacket;
 import kinoko.server.ServerConfig;
 import kinoko.server.ServerConstants;
+import kinoko.server.handler.LoginServerHandler;
 import kinoko.server.migration.MigrationInfo;
 import kinoko.server.migration.TransferInfo;
 import kinoko.server.netty.*;
@@ -124,6 +125,7 @@ public final class LoginServerNode extends ServerNode {
             }
         }, InetAddress.getByAddress(ServerConstants.CENTRAL_HOST), ServerConstants.CENTRAL_PORT);
         centralClientFuture.sync();
+        log.info("Central client 0 connected to {}", ServerConstants.CENTRAL_HOST);
     }
 
     @Override
