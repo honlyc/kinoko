@@ -18,6 +18,7 @@ import kinoko.world.user.User;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 public interface ScriptManager {
     // USER METHODS ----------------------------------------------------------------------------------------------------
@@ -95,6 +96,8 @@ public interface ScriptManager {
     boolean addItems(List<Tuple<Integer, Integer>> items);
 
     boolean addItems(List<Tuple<Integer, Integer>> items, int hours);
+
+    boolean addItemWithExpiration(int itemId, int expirationInSeconds);
 
     default boolean canAddItem(int itemId, int quantity) {
         return canAddItems(List.of(Tuple.of(itemId, quantity)));
@@ -245,7 +248,11 @@ public interface ScriptManager {
 
     void sleep(long delay, TimeUnit timeUnit);
 
-    boolean checkParty(int memberCount, int levelMin);
+    boolean checkParty(int memberCount, Predicate<User> predicate);
+
+    default boolean checkParty(int memberCount, int levelMin) {
+        return checkParty(memberCount, (user) -> user.getLevel() >= levelMin);
+    }
 
     void addCooldownTimeForParty(EventType eventType, long time);
 

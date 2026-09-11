@@ -58,6 +58,7 @@ import kinoko.world.user.stat.StatConstants;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static kinoko.provider.ItemProvider.MASTERY_BOOKS;
@@ -524,7 +525,7 @@ public final class ScriptManagerImpl implements ScriptManager {
         return true;
     }
 
-//    @Override
+    @Override
     public boolean addItemWithExpiration(int itemId, int expirationInSeconds) {
         if (!canAddItem(itemId, 1)) {
             return false;
@@ -978,13 +979,13 @@ public final class ScriptManagerImpl implements ScriptManager {
     }
 
     @Override
-    public boolean checkParty(int memberCount, int levelMin) {
+    public boolean checkParty(int memberCount, Predicate<User> predicate) {
         final List<User> members = field.getUserPool().getPartyMembers(user.getPartyId());
         if (members.size() < memberCount) {
             return false;
         }
         for (User member : members) {
-            if (member.getLevel() < levelMin) {
+            if (!predicate.test(member)) {
                 return false;
             }
         }

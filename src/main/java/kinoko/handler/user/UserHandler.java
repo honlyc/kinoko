@@ -961,7 +961,7 @@ public final class UserHandler {
         int itemId = inPacket.decodeInt();
     }
 
-    @Handler(InHeader.UserGivePopularityRequest)
+//    @Handler(InHeader.UserGivePopularityRequest)
     public static void UserGivePopularityRequest(User user, InPacket inPacket) {
         final int characterId = inPacket.decodeInt();
         final int updatedFame = inPacket.decodeByte() == 0 ? -1 : 1;
