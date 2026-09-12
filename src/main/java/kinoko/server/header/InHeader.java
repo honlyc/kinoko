@@ -271,7 +271,7 @@ public enum InHeader {
     TournamentMatchTable(258),
     PulleyHit(259),
     // END_EVENT_FIELD(260),
-    // BEGIN_MONSTER_CARNIVAL_FIELD(261),
+    HyperTeleportRock(261),
     MCarnivalRequest(262),
     // END_MONSTER_CARNIVAL_FIELD(263),
     CONTISTATE(264),

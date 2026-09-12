@@ -3,6 +3,7 @@ package kinoko.handler.field;
 import kinoko.handler.Handler;
 import kinoko.packet.field.ContiMovePacket;
 import kinoko.packet.field.FieldPacket;
+import kinoko.script.common.ScriptManager;
 import kinoko.server.event.*;
 import kinoko.server.header.InHeader;
 import kinoko.server.packet.InPacket;
@@ -11,6 +12,7 @@ import kinoko.world.field.drop.Drop;
 import kinoko.world.field.drop.DropLeaveType;
 import kinoko.world.field.reactor.Reactor;
 import kinoko.world.user.User;
+import kinoko.provider.map.PortalInfo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -107,6 +109,30 @@ public final class FieldHandler {
     public static void handleRequireFieldObstacleStatus(User user, InPacket inPacket) {
     }
 
+    @Handler(InHeader.HyperTeleportRock)
+    public static void handleHyperTeleportRock(User user, InPacket inPacket) {
+        final int mapId = inPacket.decodeInt();
+
+        // 根据地图 ID 获取目标 Field
+        final Optional<Field> fieldResult = user.getConnectedServer().getFieldById(mapId);
+        if (fieldResult.isEmpty()) {
+            log.error("Could not resolve field ID : {}", mapId);
+            user.dispose();
+            return;
+        }
+        final Field targetField = fieldResult.get();
+
+        // 获取目标地图的随机出生点
+        final Optional<PortalInfo> portalResult = targetField.getRandomStartPoint();
+        if (portalResult.isEmpty()) {
+            log.error("Could not resolve start point portal for field ID : {}", mapId);
+            user.dispose();
+            return;
+        }
+
+        // 传送用户到目标地图
+        user.warp(targetField, portalResult.get(), false, false);
+    }
 
     // CONTISTATE ------------------------------------------------------------------------------------------------------
 
