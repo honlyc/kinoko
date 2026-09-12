@@ -12,4 +12,11 @@ public class Ereve extends ScriptHandler {
         //   Empress's Road : Knights Chamber (130000101)
         sm.sayOk("Welcome to the Hall of Knights.");
     }
+    @Script("dealerA")
+    public static void dealerA(ScriptManager sm) {
+        // Dealer A (1102004)
+        //   Empress' Road : Knights Chamber (130000100)
+        //   Empress's Road : Knights Chamber (130000101)
+        sm.sayOk("热更新脚本测试.");
+    }
 }

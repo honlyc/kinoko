@@ -1213,6 +1213,13 @@ public final class AdminCommands {
         CashShop.initialize();
     }
 
+    @Command({ "reloadscripts", "reloadscript", "rs" })
+    @Permission("user")
+    public static void reloadScripts(User user, String[] args) {
+        final String result = ScriptDispatcher.reload();
+        user.write(MessagePacket.system(result));
+    }
+
     @Command({"s", "smega"})
     @Arguments("message")
     @Permission("user")

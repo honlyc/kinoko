@@ -22,6 +22,7 @@ public final class ServerConfig {
 
     public static final String WZ_DIRECTORY = Util.getEnv("WZ_DIRECTORY", "wz");
     public static final String DATA_DIRECTORY = Util.getEnv("DATA_DIRECTORY", "data");
+    public static final String SCRIPT_DIRECTORY = Util.getEnv("SCRIPT_DIRECTORY", "scripts");
 
     public static final int CHARACTER_BASE_SLOTS = Util.getEnv("CHARACTER_BASE_SLOTS", 3);
     public static final int INVENTORY_BASE_SLOTS = Util.getEnv("INVENTORY_BASE_SLOTS", 24);
