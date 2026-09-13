@@ -45,14 +45,14 @@ public class AmaurotSpecial extends ScriptHandler {
         options.put(51, "矿物背包");
 
         // GM额外选项
-        if (account.isGM()) {
+//        if (account.isGM()) {
             options.put(61, red("=====以下内容仅GM可见====="));
             options.put(62, "超级商店(GM)");
             options.put(63, "整容集合(GM)");
             options.put(64, "UI查询(GM)");
             options.put(65, "一键删除道具(GM)");
             options.put(66, "一键刷道具(GM)");
-        }
+//        }
 
         int selection = sm.askMenu(title, options);
         handleSelection(sm, selection);
@@ -279,10 +279,27 @@ public class AmaurotSpecial extends ScriptHandler {
 
     /**
      * 一键刷道具 (GM)
+     * 输入道具ID和数量，直接发放到背包
      */
     private static void spawnItems(ScriptManager sm) {
-        // TODO: 实现一键刷道具功能
-        sm.sayOk("一键刷道具功能开发中，敬请期待！");
+        // 第一步：输入道具ID
+        int itemId = sm.askNumber("请输入道具ID，我可以刷任何道具", 0, 0, 99999999);
+        if (itemId <= 0) {
+            sm.sayOk("道具ID无效！");
+            return;
+        }
+
+        // 第二步：输入数量
+        int quantity = sm.askNumber("请输入数量（1~999）", 1, 1, 999);
+
+        // 发放道具
+        if (sm.addItem(itemId, quantity)) {
+            sm.sayOk("恭喜你，Get到了！" + itemImage(itemId) + "\\r\\n"
+                    + "道具ID：" + blue(String.valueOf(itemId)) + "\\r\\n"
+                    + "数量：" + blue(String.valueOf(quantity)));
+        } else {
+            sm.sayOk(red("道具发放失败！") + "\\r\\n可能原因：道具不存在或背包已满。");
+        }
     }
 
     // ===== 原有脚本 =====
