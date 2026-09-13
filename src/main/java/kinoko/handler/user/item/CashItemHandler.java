@@ -28,6 +28,7 @@ import kinoko.server.packet.OutPacket;
 import kinoko.server.user.RemoteUser;
 import kinoko.util.Tuple;
 import kinoko.util.Util;
+import kinoko.world.GameConstants;
 import kinoko.world.field.Field;
 import kinoko.world.field.MapleTvMessage;
 import kinoko.world.field.affectedarea.AffectedArea;
@@ -751,6 +752,79 @@ public final class CashItemHandler extends ItemHandler {
 //                final int equipItemPosition = inPacket.decodeByte();
                 log.info("QUESTDELIVERY: equipItemPosition={}", item);
                 user.dispose();
+            }
+            case PETFOOD -> {
+                // 现金宠物食物（524系列），需要匹配特定宠物
+                final int incFullness = itemInfo.getSpec(ItemSpecType.inc);
+                // 遍历所有宠物，查找可以消费该食物的宠物
+                boolean isUsed = false;
+                for (int i = 0; i < 3; i++) {
+                    final Pet pet = user.getPet(i);
+                    if (pet == null) {
+                        break;
+                    }
+                    if (!ItemProvider.isCashPetFoodSuitable(itemId, pet.getTemplateId())) {
+                        continue;
+                    }
+                    // 找到匹配的宠物，执行喂食
+                    isUsed = true;
+                    final int petIndex = i;
+                    final long petSn = pet.getItemSn();
+                    // 获取宠物物品
+                    final Optional<Tuple<Integer, Item>> petItemEntryResult = im.getItemBySn(InventoryType.CASH, petSn);
+                    if (petItemEntryResult.isEmpty()) {
+                        log.error("Could not resolve pet item : {}", petSn);
+                        user.dispose();
+                        return;
+                    }
+                    final int petPosition = petItemEntryResult.get().getLeft();
+                    final Item petItem = petItemEntryResult.get().getRight();
+                    // 消耗食物
+                    final Optional<InventoryOperation> removeItemResult = im.removeItem(position, item, 1);
+                    if (removeItemResult.isEmpty()) {
+                        log.error("Could not remove cash pet food item from inventory");
+                        user.dispose();
+                        return;
+                    }
+                    user.write(WvsContext.inventoryOperation(removeItemResult.get(), false));
+                    // 增加饱食度
+                    final PetData petData = petItem.getPetData();
+                    final int fullness = petData.getFullness();
+                    final boolean success = fullness < GameConstants.PET_FULLNESS_MAX;
+                    petData.setFullness((byte) Math.min(fullness + incFullness, GameConstants.PET_FULLNESS_MAX));
+                    // 处理亲密度和升级
+                    boolean levelUp = false;
+                    if (fullness <= GameConstants.PET_FULLNESS_FOR_TAMENESS) {
+                        final int newTameness = Math.min(petData.getTameness() + 1, GameConstants.PET_TAMENESS_MAX);
+                        petData.setTameness((short) newTameness);
+                        while (petData.getLevel() < GameConstants.PET_LEVEL_MAX &&
+                                newTameness > GameConstants.getNextLevelPetCloseness(petData.getLevel())) {
+                            petData.setLevel((byte) (petData.getLevel() + 1));
+                            levelUp = true;
+                        }
+                    } else if (fullness == GameConstants.PET_FULLNESS_MAX) {
+                        final int newTameness = Math.max(petData.getTameness() - 1, 0);
+                        petData.setTameness((short) newTameness);
+                    }
+                    // 更新宠物物品
+                    final Optional<InventoryOperation> updateResult = im.updateItem(petPosition, petItem);
+                    if (updateResult.isEmpty()) {
+                        throw new IllegalStateException("Could not update pet item");
+                    }
+                    user.write(WvsContext.inventoryOperation(updateResult.get(), true));
+                    if (levelUp) {
+                        user.write(UserLocal.effect(Effect.petLevelUp(petIndex)));
+                        user.getField().broadcastPacket(UserRemote.effect(user, Effect.petLevelUp(petIndex)), user);
+                    }
+                    // 广播宠物喂食动作
+                    user.getField().broadcastPacket(PetPacket.petActionFeed(user, petIndex, success, pet.getChatBalloon()));
+                    break;
+                }
+                if (!isUsed) {
+                    // 所有宠物都不匹配该食物
+                    user.write(MessagePacket.system("None of your pets can eat this food."));
+                    user.dispose();
+                }
             }
             case null -> {
                 log.error("Unknown cash item type for item ID : {}", item.getItemId());

@@ -62,7 +62,10 @@ public enum QuestRecordType {
     ZakumPreqStageOne(100200),
     ZakumPreqStageTwo(100201),
     Zakum(100250),
-    MuLungDojoTutorial(1000000);
+    MuLungDojoTutorial(1000000),
+
+    // 自定义脚本中心
+    NewbieWelfare(7700);            // 新人福利礼包领取标记
 
     private final int questId;
 

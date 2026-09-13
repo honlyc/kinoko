@@ -27,6 +27,7 @@ public final class ItemProvider implements WzProvider {
     private static final Map<Integer, MobSummonInfo> mobSummonInfos = new HashMap<>();
     private static final Map<Integer, Set<Integer>> petEquips = new HashMap<>(); // petEquipId -> set<petTemplateId>
     private static final Map<Integer, Map<Integer, PetInteraction>> petActions = new HashMap<>(); // petTemplateId -> (action -> PetInteraction)
+    private static final Map<Integer, Set<Integer>> cashPetFoods = new HashMap<>(); // cashPetFoodItemId -> set<petTemplateId>
     private static final Map<Integer, String> specialItemNames = new HashMap<>();
 
     public static void initialize() {
@@ -98,6 +99,11 @@ public final class ItemProvider implements WzProvider {
         return Optional.ofNullable(petActions.getOrDefault(templateId, Map.of()).get(action));
     }
 
+    public static boolean isCashPetFoodSuitable(int itemId, int petTemplateId) {
+        final Set<Integer> suitablePets = cashPetFoods.get(itemId);
+        return suitablePets != null && suitablePets.contains(petTemplateId);
+    }
+
     public static Optional<String> getSpecialItemName(int itemId) {
         return Optional.ofNullable(specialItemNames.get(itemId));
     }
@@ -157,6 +163,18 @@ public final class ItemProvider implements WzProvider {
                     // Mastery Books
                     if (directoryName.equals(ITEM_TYPES.getFirst()) && itemProp.get("skill") instanceof WzProperty skillList) {
                         MASTERY_BOOKS.add(itemId);
+                    }
+                    // Cash pet food - 524 系列物品的 spec 中包含可喂食的宠物 templateId（数字键名）
+                    if (itemId / 10000 == 524 && itemProp.get("spec") instanceof WzProperty specProp) {
+                        final Set<Integer> suitablePets = new HashSet<>();
+                        for (var specEntry : specProp.getItems().entrySet()) {
+                            if (Util.isInteger(specEntry.getKey())) {
+                                suitablePets.add(WzProvider.getInteger(specEntry.getValue()));
+                            }
+                        }
+                        if (!suitablePets.isEmpty()) {
+                            cashPetFoods.put(itemId, Collections.unmodifiableSet(suitablePets));
+                        }
                     }
                 }
             }
